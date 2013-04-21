@@ -389,6 +389,8 @@ static int GLimp_SetMode(int mode, qboolean fullscreen, qboolean noborder)
 		}
 #endif
 
+#ifndef EMSCRIPTEN
+
 		if( SDL_GL_SetAttribute( SDL_GL_SWAP_CONTROL, r_swapInterval->integer ) < 0 )
 			ri.Printf( PRINT_ALL, "r_swapInterval requires libSDL >= 1.2.10\n" );
 
@@ -410,6 +412,8 @@ static int GLimp_SetMode(int mode, qboolean fullscreen, qboolean noborder)
 			SDL_WM_SetIcon( icon, NULL );
 			SDL_FreeSurface( icon );
 		}
+#endif
+
 #endif
 
 		SDL_WM_SetCaption(CLIENT_WINDOW_TITLE, CLIENT_WINDOW_MIN_TITLE);

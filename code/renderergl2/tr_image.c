@@ -1941,6 +1941,11 @@ static void RawImage_UploadTexture( byte *data, int x, int y, int width, int hei
 			break;
 	}
 
+// HULK-SMASH! GLES requires that the internal format matches the data format.
+#ifdef EMSCRIPTEN
+	internalFormat = dataFormat;
+#endif
+
 	if ( subtexture )
 		qglTexSubImage2D( GL_TEXTURE_2D, 0, x, y, width, height, dataFormat, dataType, data );
 	else
@@ -2241,7 +2246,7 @@ image_t *R_CreateImage( const char *name, byte *pic, int width, int height, imgT
 	}
 
 	image = tr.images[tr.numImages] = ri.Hunk_Alloc( sizeof( image_t ), h_low );
-	image->texnum = 1024 + tr.numImages;
+	glGenTextures(1, &image->texnum);
 	tr.numImages++;
 
 	image->type = type;

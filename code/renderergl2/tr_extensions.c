@@ -192,11 +192,25 @@ void GLimp_InitExtraExtensions()
 	char *extension;
 	const char* result[3] = { "...ignoring %s\n", "...using %s\n", "...%s not found\n" };
 
+#if EMSCRIPTEN
+	extension = "OES_element_index_uint";
+	if( GLimp_HaveExtension( extension ) )
+	{
+		ri.Printf(PRINT_ALL, result[1], extension);
+	}
+	else
+	{
+		ri.Error(ERR_FATAL, result[2], extension);
+	}
+#endif
+
 	// GL_EXT_draw_range_elements
 	extension = "GL_EXT_draw_range_elements";
 	glRefConfig.drawRangeElements = qfalse;
 	qglMultiDrawArraysEXT = NULL;
 	qglMultiDrawElementsEXT = NULL;
+// emscripten's GL library emulates this, but it's much slower than just drawing the entire VBO
+#if !EMSCRIPTEN
 	if( GLimp_HaveExtension( extension ) )
 	{
 		qglDrawRangeElementsEXT = (void *) SDL_GL_GetProcAddress("glDrawRangeElementsEXT");
@@ -210,12 +224,14 @@ void GLimp_InitExtraExtensions()
 	{
 		ri.Printf(PRINT_ALL, result[2], extension);
 	}
+#endif
 
 	// GL_EXT_multi_draw_arrays
 	extension = "GL_EXT_multi_draw_arrays";
 	glRefConfig.multiDrawArrays = qfalse;
 	qglMultiDrawArraysEXT = NULL;
 	qglMultiDrawElementsEXT = NULL;
+#if !EMSCRIPTEN
 	if( GLimp_HaveExtension( extension ) )
 	{
 		qglMultiDrawArraysEXT = (PFNGLMULTIDRAWARRAYSEXTPROC) SDL_GL_GetProcAddress("glMultiDrawArraysEXT");
@@ -230,6 +246,7 @@ void GLimp_InitExtraExtensions()
 	{
 		ri.Printf(PRINT_ALL, result[2], extension);
 	}
+#endif
 
 	// GL_ARB_vertex_program
 	//glRefConfig.vertexProgram = qfalse;
@@ -498,6 +515,7 @@ void GLimp_InitExtraExtensions()
 	// GL_EXT_framebuffer_object
 	extension = "GL_EXT_framebuffer_object";
 	glRefConfig.framebufferObject = qfalse;
+#if !EMSCRIPTEN
 	if( GLimp_HaveExtension( extension ) )
 	{
 		glGetIntegerv(GL_MAX_RENDERBUFFER_SIZE_EXT, &glRefConfig.maxRenderbufferSize);
@@ -530,6 +548,7 @@ void GLimp_InitExtraExtensions()
 	{
 		ri.Printf(PRINT_ALL, result[2], extension);
 	}
+#endif
 
 	// GL_EXT_packed_depth_stencil
 	extension = "GL_EXT_packed_depth_stencil";

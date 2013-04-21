@@ -217,6 +217,7 @@ static void GLSL_GetShaderHeader( GLenum shaderType, const GLcharARB *extra, cha
 	dest[0] = '\0';
 
 	// HACK: abuse the GLSL preprocessor to turn GLSL 1.20 shaders into 1.30 ones
+#if !EMSCRIPTEN
 	if(glRefConfig.glslMajorVersion > 1 || (glRefConfig.glslMajorVersion == 1 && glRefConfig.glslMinorVersion >= 30))
 	{
 		Q_strcat(dest, size, "#version 130\n");
@@ -238,6 +239,7 @@ static void GLSL_GetShaderHeader( GLenum shaderType, const GLcharARB *extra, cha
 	{
 		Q_strcat(dest, size, "#version 120\n");
 	}
+#endif
 
 	// HACK: add some macros to avoid extra uniforms and save speed and code maintenance
 	//Q_strcat(dest, size,
@@ -439,26 +441,34 @@ static void GLSL_LinkProgram(GLhandleARB program)
 	}
 }
 
-static void GLSL_ValidateProgram(GLhandleARB program)
-{
-	GLint           validated;
+// static void GLSL_ValidateProgram(GLhandleARB program)
+// {
+// 	GLint           validated;
 
-	qglValidateProgramARB(program);
-
-	qglGetObjectParameterivARB(program, GL_OBJECT_VALIDATE_STATUS_ARB, &validated);
-	if(!validated)
-	{
-		GLSL_PrintInfoLog(program, qfalse);
-		ri.Printf(PRINT_ALL, "\n");
-		ri.Error(ERR_DROP, "shaders failed to validate");
-	}
-}
+// 	qglValidateProgramARB(program);
+// 	qglGetObjectParameterivARB(program, GL_OBJECT_VALIDATE_STATUS_ARB, &validated);
+// 	if(!validated)
+// 	{
+// 		GLSL_PrintInfoLog(program, qfalse);
+// 		ri.Printf(PRINT_ALL, "\n");
+// 		ri.Error(ERR_DROP, "shaders failed to validate");
+// 	}
+// }
 
 static void GLSL_ShowProgramUniforms(GLhandleARB program)
 {
 	int             i, count, size;
 	GLenum			type;
 	char            uniformName[1000];
+
+// This function is rather expensive in WebGL, let's completely
+// avoid it if not a developer.
+#ifdef EMSCRIPTEN
+	if(!Cvar_VariableIntegerValue("developer"))
+	{
+		return;
+	}
+#endif
 
 	// install the executables in the program object as part of current state.
 	qglUseProgramObjectARB(program);
@@ -659,7 +669,10 @@ void GLSL_InitUniforms(shaderProgram_t *program)
 
 void GLSL_FinishGPUShader(shaderProgram_t *program)
 {
-	GLSL_ValidateProgram(program->program);
+	// AP - glValidateProgram seems to make some guarantees about shader execution
+	// with regards to the current GL state. I'm not sure I see the point of
+	// checking this while in the middle of building all of the shaders.
+	// GLSL_ValidateProgram(program->program);
 	GLSL_ShowProgramUniforms(program->program);
 	GL_CheckErrors();
 }
@@ -1154,6 +1167,7 @@ void GLSL_InitGPUShaders(void)
 		numLightShaders++;
 	}
 
+#if !EMSCRIPTEN
 	attribs = ATTR_POSITION | ATTR_POSITION2 | ATTR_NORMAL | ATTR_NORMAL2 | ATTR_TEXCOORD;
 
 	extradefines[0] = '\0';
@@ -1352,6 +1366,7 @@ void GLSL_InitGPUShaders(void)
 
 		numEtcShaders++;
 	}
+#endif
 
 #if 0
 	attribs = ATTR_POSITION | ATTR_TEXCOORD;

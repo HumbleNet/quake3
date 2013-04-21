@@ -851,7 +851,6 @@ typedef enum {
 	SF_IQM,
 	SF_FLARE,
 	SF_ENTITY,				// beams, rails, lightning, etc that can be determined by entity
-	SF_DISPLAY_LIST,
 	SF_VBO_MESH,
 	SF_VBO_MDVMESH,
 
@@ -1395,6 +1394,7 @@ typedef enum {
 // We can't change glConfig_t without breaking DLL/vms compatibility, so
 // store extensions we have here.
 typedef struct {
+	qboolean    standardDerivatives;
 	qboolean    drawRangeElements;
 	qboolean    multiDrawArrays;
 	qboolean	occlusionQuery;
