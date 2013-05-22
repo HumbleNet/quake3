@@ -142,15 +142,20 @@ Cbuf_ExecuteText
 */
 void Cbuf_ExecuteText (int exec_when, const char *text)
 {
+	unsigned pending;
 	switch (exec_when)
 	{
 	case EXEC_NOW:
+		pending = cb_num_pending();
 		if (text && strlen(text) > 0) {
 			Com_DPrintf(S_COLOR_YELLOW "EXEC_NOW %s\n", text);
 			Cmd_ExecuteString (text);
 		} else {
 			Cbuf_Execute();
 			Com_DPrintf(S_COLOR_YELLOW "EXEC_NOW %s\n", cmd_text.data);
+		}
+		if (cb_num_pending() != pending) {
+			Com_Error(ERR_DROP, "Cbuf_ExecuteText: EXEC_NOW called an async handler");
 		}
 		break;
 	case EXEC_INSERT:
@@ -181,7 +186,7 @@ void Cbuf_Execute (void)
 	// breaking it for semicolon or newline.
 	qboolean in_star_comment = qfalse;
 	qboolean in_slash_comment = qfalse;
-	while (cmd_text.cursize)
+	while (cmd_text.cursize && !cb_num_pending())
 	{
 		if ( cmd_wait > 0 ) {
 			// skip out while text still remains in buffer, leaving it

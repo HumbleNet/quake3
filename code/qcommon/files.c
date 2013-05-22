@@ -33,6 +33,11 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include "qcommon.h"
 #include "unzip.h"
 
+#if EMSCRIPTEN
+extern void Sys_FS_Startup(cb_context_t *after);
+extern void Sys_FS_Shutdown(cb_context_t *after);
+#endif
+
 /*
 =============================================================================
 
@@ -3169,7 +3174,24 @@ FS_Shutdown
 Frees all resources.
 ================
 */
-void FS_Shutdown( qboolean closemfp ) {
+typedef struct shutdown_data_s {
+	cb_context_t *after;
+} shutdown_data_t;
+
+void FS_Shutdown_after_Sys_FS_Shutdown( cb_context_t *context, int status ) {
+	shutdown_data_t *data;
+	cb_context_t *after;
+
+	data = (shutdown_data_t*)context->data;
+	after = data->after;
+	cb_free_context(context);
+
+	cb_run(after, 0);
+}
+
+void FS_Shutdown( qboolean closemfp, cb_context_t *after ) {
+	cb_context_t *context;
+	shutdown_data_t *data;
 	searchpath_t	*p, *next;
 	int	i;
 
@@ -3205,6 +3227,16 @@ void FS_Shutdown( qboolean closemfp ) {
 	if (closemfp) {
 		fclose(missingFiles);
 	}
+#endif
+
+	context = cb_create_context(FS_Shutdown_after_Sys_FS_Shutdown, shutdown_data_t);
+	data = (shutdown_data_t*)context->data;
+	data->after = after;
+
+#if EMSCRIPTEN
+	Sys_FS_Shutdown(context);
+#else
+	cb_run(context, 0);
 #endif
 }
 
@@ -3258,23 +3290,20 @@ static void FS_ReorderPurePaks( void )
 FS_Startup
 ================
 */
-static void FS_Startup( const char *gameName )
-{
-	const char *homePath;
+typedef struct startup_data_s {
+	char gameName[MAX_OSPATH];
+	cb_context_t *after;
+} startup_data_t;
 
-	Com_Printf( "----- FS_Startup -----\n" );
+static void FS_Startup_after_Sys_FS_Startup( cb_context_t *context, int status ) {
+	startup_data_t *data;
+	char gameName[MAX_OSPATH];
+	cb_context_t *after;
 
-	fs_packFiles = 0;
-
-	fs_debug = Cvar_Get( "fs_debug", "0", 0 );
-	fs_basepath = Cvar_Get ("fs_basepath", Sys_DefaultInstallPath(), CVAR_INIT|CVAR_PROTECTED );
-	fs_basegame = Cvar_Get ("fs_basegame", "", CVAR_INIT );
-	homePath = Sys_DefaultHomePath();
-	if (!homePath || !homePath[0]) {
-		homePath = fs_basepath->string;
-	}
-	fs_homepath = Cvar_Get ("fs_homepath", homePath, CVAR_INIT|CVAR_PROTECTED );
-	fs_gamedirvar = Cvar_Get ("fs_game", "", CVAR_INIT|CVAR_SYSTEMINFO );
+	data = (startup_data_t*)context->data;
+	Q_strncpyz(gameName, data->gameName, MAX_OSPATH);
+	after = data->after;
+	cb_free_context(context);
 
 	// add search path elements in reverse priority order
 	if (fs_basepath->string[0]) {
@@ -3352,6 +3381,41 @@ static void FS_Startup( const char *gameName )
 	}
 #endif
 	Com_Printf( "%d files in pk3 files\n", fs_packFiles );
+
+	cb_run(after, 0);
+}
+
+static void FS_Startup( const char *gameName, cb_context_t *after )
+{
+	const char *homePath;
+	cb_context_t *context;
+	startup_data_t *data;
+
+	Com_Printf( "----- FS_Startup -----\n" );
+
+	fs_packFiles = 0;
+
+	fs_debug = Cvar_Get( "fs_debug", "0", 0 );
+	fs_basepath = Cvar_Get ("fs_basepath", Sys_DefaultInstallPath(), CVAR_INIT|CVAR_PROTECTED );
+	fs_basegame = Cvar_Get ("fs_basegame", "", CVAR_INIT );
+	homePath = Sys_DefaultHomePath();
+	if (!homePath || !homePath[0]) {
+		homePath = fs_basepath->string;
+	}
+	fs_homepath = Cvar_Get ("fs_homepath", homePath, CVAR_INIT|CVAR_PROTECTED );
+	fs_gamedirvar = Cvar_Get ("fs_game", "", CVAR_INIT|CVAR_SYSTEMINFO );
+
+	// Setup callback.
+	context = cb_create_context(FS_Startup_after_Sys_FS_Startup, startup_data_t);
+	data = (startup_data_t*)context->data;
+	Q_strncpyz(data->gameName, gameName, MAX_OSPATH);
+	data->after = after;
+
+#if EMSCRIPTEN
+	Sys_FS_Startup(context);
+#else
+	cb_run(context, 0);
+#endif
 }
 
 #ifndef STANDALONE
@@ -3791,17 +3855,22 @@ void FS_PureServerSetLoadedPaks( const char *pakSums, const char *pakNames ) {
 	if (fs_numServerPaks) {
 		Com_DPrintf( "Connected to a pure server.\n" );
 	}
-	else
-	{
-		if (fs_reordered)
-		{
-			// https://zerowing.idsoftware.com/bugzilla/show_bug.cgi?id=540
-			// force a restart to make sure the search order will be correct
-			Com_DPrintf( "FS search reorder is required\n" );
-			FS_Restart(fs_checksumFeed);
-			return;
-		}
-	}
+
+	// FIXME instead of invoking an async restart here, we should be able
+	// to synchronously desort the paks back to their original state.
+	// asynchronously restarting here would require a large amount of
+	// refactoring
+	// else
+	// {
+	// 	if (fs_reordered)
+	// 	{
+	// 		// https://zerowing.idsoftware.com/bugzilla/show_bug.cgi?id=540
+	// 		// force a restart to make sure the search order will be correct
+	// 		Com_DPrintf( "FS search reorder is required\n" );
+	// 		FS_Restart(fs_checksumFeed);
+	// 		return;
+	// 	}
+	// }
 
 	for ( i = 0 ; i < c ; i++ ) {
 		if (fs_serverPakNames[i]) {
@@ -3882,20 +3951,17 @@ Called only at inital startup, not when the filesystem
 is resetting due to a game change
 ================
 */
-void FS_InitFilesystem( void ) {
-	// allow command line parms to override our defaults
-	// we have to specially handle this, because normal command
-	// line variable sets don't happen until after the filesystem
-	// has already been initialized
-	Com_StartupVariable("fs_basepath");
-	Com_StartupVariable("fs_homepath");
-	Com_StartupVariable("fs_game");
+typedef struct init_filesystem_data_s {
+	cb_context_t *after;
+} init_filesystem_data_t;
 
-	if(!FS_FilenameCompare(Cvar_VariableString("fs_game"), com_basegame->string))
-		Cvar_Set("fs_game", "");
+void FS_InitFilesystem_after_FS_Startup( cb_context_t *context, int status ) {
+	init_filesystem_data_t *data;
+	cb_context_t *after;
 
-	// try to start up normally
-	FS_Startup(com_basegame->string);
+	data = (init_filesystem_data_t*)context->data;
+	after = data->after;
+	cb_free_context(context);
 
 #ifndef STANDALONE
 	FS_CheckPak0( );
@@ -3910,27 +3976,56 @@ void FS_InitFilesystem( void ) {
 
 	Q_strncpyz(lastValidBase, fs_basepath->string, sizeof(lastValidBase));
 	Q_strncpyz(lastValidGame, fs_gamedirvar->string, sizeof(lastValidGame));
+
+	cb_run(after, 0);
 }
 
+void FS_InitFilesystem( cb_context_t *after ) {
+	cb_context_t *context;
+	init_filesystem_data_t *data;
+
+	// allow command line parms to override our defaults
+	// we have to specially handle this, because normal command
+	// line variable sets don't happen until after the filesystem
+	// has already been initialized
+	Com_StartupVariable("fs_basepath");
+	Com_StartupVariable("fs_homepath");
+	Com_StartupVariable("fs_game");
+
+	if(!FS_FilenameCompare(Cvar_VariableString("fs_game"), com_basegame->string))
+		Cvar_Set("fs_game", "");
+
+	// try to start up normally
+	context = cb_create_context(FS_InitFilesystem_after_FS_Startup, init_filesystem_data_t);
+	data = (init_filesystem_data_t*)context->data;
+	data->after = after;
+
+	FS_Startup(com_basegame->string, context);
+}
 
 /*
 ================
 FS_Restart
 ================
 */
-void FS_Restart( int checksumFeed ) {
+typedef struct restart_data_s {
+	int checksumFeed;
+	cb_context_t *after;
+} restart_data_t;
 
-	// free anything we currently have loaded
-	FS_Shutdown(qfalse);
+static void FS_Restart_after_game_restart( cb_context_t *context, int status ) {
+	cb_free_context(context);
 
-	// set the checksum feed
-	fs_checksumFeed = checksumFeed;
+	Com_Error( ERR_DROP, "Invalid game folder" );
+}
 
-	// clear pak references
-	FS_ClearPakReferences(0);
+static void FS_Restart_after_FS_Startup( cb_context_t *context, int status ) {
+	restart_data_t *data;
+	cb_context_t *after;
 
-	// try to start up normally
-	FS_Startup(com_basegame->string);
+	data = (restart_data_t*)context->data;
+	after = data->after;
+	cb_free_context(context);
 
 #ifndef STANDALONE
 	FS_CheckPak0( );
@@ -3948,8 +4043,11 @@ void FS_Restart( int checksumFeed ) {
 			Cvar_Set("fs_game", lastValidGame);
 			lastValidBase[0] = '\0';
 			lastValidGame[0] = '\0';
-			FS_Restart(checksumFeed);
-			Com_Error( ERR_DROP, "Invalid game folder" );
+			
+			// Re-use the current context.
+			context->cb = FS_Restart_after_game_restart;
+
+			FS_Restart(fs_checksumFeed, context);
 			return;
 		}
 		Com_Error( ERR_FATAL, "Couldn't load default.cfg" );
@@ -3965,6 +4063,38 @@ void FS_Restart( int checksumFeed ) {
 	Q_strncpyz(lastValidBase, fs_basepath->string, sizeof(lastValidBase));
 	Q_strncpyz(lastValidGame, fs_gamedirvar->string, sizeof(lastValidGame));
 
+	cb_run(after, 0);
+}
+
+static void FS_Restart_after_FS_Shutdown( cb_context_t *context, int status ) {
+	restart_data_t *data;
+
+	data = (restart_data_t*)context->data;
+
+	// set the checksum feed
+	fs_checksumFeed = data->checksumFeed;
+
+	// clear pak references
+	FS_ClearPakReferences(0);
+
+	// reuse the same context
+	context->cb = FS_Restart_after_FS_Startup;
+
+	// try to start up normally
+	FS_Startup(com_basegame->string, context);
+}
+
+void FS_Restart( int checksumFeed, cb_context_t *after ) {
+	cb_context_t *context;
+	restart_data_t *data;
+
+	context = cb_create_context(FS_Restart_after_FS_Shutdown, restart_data_t);
+	data = (restart_data_t*)context->data;
+	data->checksumFeed = checksumFeed;
+	data->after = after;
+
+	// free anything we currently have loaded
+	FS_Shutdown(qfalse, context);
 }
 
 /*
@@ -3975,27 +4105,60 @@ Restart if necessary
 Return qtrue if restarting due to game directory changed, qfalse otherwise
 =================
 */
-qboolean FS_ConditionalRestart(int checksumFeed, qboolean disconnect)
+typedef struct conditional_restart_data_s {
+	qboolean result;
+	cb_context_t *after;
+} conditional_restart_data_t;
+
+static void FS_ConditionalRestart_after_restart( cb_context_t *context, int status ) {
+	conditional_restart_data_t *data;
+	cb_context_t *after;
+	int result;
+
+	data = (conditional_restart_data_t*)context->data;
+	after = data->after;
+	result = data->result;
+	cb_free_context(context);
+
+	cb_run(after, result);
+}
+
+void FS_ConditionalRestart(int checksumFeed, qboolean disconnect, cb_context_t *after)
 {
+	cb_context_t *context;
+	conditional_restart_data_t *data;
+
+	context = cb_create_context(FS_ConditionalRestart_after_restart, conditional_restart_data_t);
+	data = (conditional_restart_data_t*)context->data;
+	data->after = after;
+
 	if(fs_gamedirvar->modified)
 	{
 		if(FS_FilenameCompare(lastValidGame, fs_gamedirvar->string) &&
 				(*lastValidGame || FS_FilenameCompare(fs_gamedirvar->string, com_basegame->string)) &&
 				(*fs_gamedirvar->string || FS_FilenameCompare(lastValidGame, com_basegame->string)))
 		{
-			Com_GameRestart(checksumFeed, disconnect);
-			return qtrue;
+			data->result = qtrue;
+			Com_GameRestart(checksumFeed, disconnect, context);
+			return;
 		}
 		else
 			fs_gamedirvar->modified = qfalse;
 	}
 
+	data->result = qfalse;
 	if(checksumFeed != fs_checksumFeed)
-		FS_Restart(checksumFeed);
+	{
+		FS_Restart(checksumFeed, context);
+		return;
+	}
 	else if(fs_numServerPaks && !fs_reordered)
+	{
 		FS_ReorderPurePaks();
+	}
 
-	return qfalse;
+	// Else, run immediately.
+	cb_run(context, 0);
 }
 
 /*

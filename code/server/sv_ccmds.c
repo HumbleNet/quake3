@@ -150,18 +150,46 @@ SV_Map_f
 Restart the server on a different map
 ==================
 */
+typedef struct map_data_s {
+	qboolean cheat;
+} map_data_t;
+
+static void SV_Map_f_after_SV_SpawnServer( cb_context_t *context, int status ) {
+	map_data_t *data;
+	qboolean cheat;
+
+	data = (map_data_t*)context->data;
+	cheat = data->cheat;
+	cb_free_context(context);
+
+	// set the cheat value
+	// if the level was started with "map <levelname>", then
+	// cheats will not be allowed.  If started with "devmap <levelname>"
+	// then cheats will be allowed
+	if ( cheat ) {
+		Cvar_Set( "sv_cheats", "1" );
+	} else {
+		Cvar_Set( "sv_cheats", "0" );
+	}
+}
+
 static void SV_Map_f( void ) {
-	char		*cmd;
-	char		*map;
-	qboolean	killBots, cheat;
-	char		expanded[MAX_QPATH];
-	char		mapname[MAX_QPATH];
+	char         *cmd;
+	char         *map;
+	qboolean     killBots, cheat;
+	char         expanded[MAX_QPATH];
+	char         mapname[MAX_QPATH];
+	cb_context_t *context;
+	map_data_t   *data;
 
 	map = Cmd_Argv(1);
 	if ( !map ) {
 		return;
 	}
 
+// JS builds preload the map paks as part of FS_Restart,
+// the map likely won't be in the FS at this point.
+#ifndef EMSCRIPTEN
 	// make sure the level exists before trying to change, so that
 	// a typo at the server console won't end the game
 	Com_sprintf (expanded, sizeof(expanded), "maps/%s.bsp", map);
@@ -169,6 +197,7 @@ static void SV_Map_f( void ) {
 		Com_Printf ("Can't find map %s\n", expanded);
 		return;
 	}
+#endif
 
 	// force latched values to get set
 	Cvar_Get ("g_gametype", "0", CVAR_SERVERINFO | CVAR_USERINFO | CVAR_LATCH );
@@ -204,18 +233,12 @@ static void SV_Map_f( void ) {
 	// and thus nuke the arguments of the map command
 	Q_strncpyz(mapname, map, sizeof(mapname));
 
-	// start up the map
-	SV_SpawnServer( mapname, killBots );
+	// start up the map	
+	context = cb_create_context(SV_Map_f_after_SV_SpawnServer, map_data_t);
+	data = (map_data_t*)context->data;
+	data->cheat = cheat;
 
-	// set the cheat value
-	// if the level was started with "map <levelname>", then
-	// cheats will not be allowed.  If started with "devmap <levelname>"
-	// then cheats will be allowed
-	if ( cheat ) {
-		Cvar_Set( "sv_cheats", "1" );
-	} else {
-		Cvar_Set( "sv_cheats", "0" );
-	}
+	SV_SpawnServer( mapname, killBots, context );
 }
 
 /*
@@ -269,7 +292,7 @@ static void SV_MapRestart_f( void ) {
 		// restart the map the slow way
 		Q_strncpyz( mapname, Cvar_VariableString( "mapname" ), sizeof( mapname ) );
 
-		SV_SpawnServer( mapname, qfalse );
+		SV_SpawnServer( mapname, qfalse, NULL );
 		return;
 	}
 

@@ -539,7 +539,9 @@ void Sys_ParseArgs( int argc, char **argv )
 }
 
 #ifndef DEFAULT_BASEDIR
-#	ifdef MACOS_X
+#	ifdef EMSCRIPTEN
+#		define DEFAULT_BASEDIR "/base"
+#	elif defined MACOS_X
 #		define DEFAULT_BASEDIR Sys_StripAppBundle(Sys_BinaryPath())
 #	else
 #		define DEFAULT_BASEDIR Sys_BinaryPath()
@@ -583,6 +585,10 @@ Sys_Frame
 =================
 */
 void Sys_Frame() {
+	if (cb_num_pending()) {
+		return;
+	}
+
 	IN_Frame();
 	Com_Frame();
 }
@@ -592,6 +598,35 @@ void Sys_Frame() {
 main
 =================
 */
+static void main_after_Com_Init( cb_context_t *context, int status ) {
+	cb_free_context(context);
+
+	NET_Init( );
+
+	CON_Init( );
+
+	signal( SIGILL, Sys_SigHandler );
+	signal( SIGFPE, Sys_SigHandler );
+	signal( SIGSEGV, Sys_SigHandler );
+	signal( SIGTERM, Sys_SigHandler );
+	signal( SIGINT, Sys_SigHandler );
+
+#ifdef EMSCRIPTEN
+	int fps = 0;
+#ifdef DEDICATED
+	// HACK for now to prevent Browser lib from calling
+	// requestAnimationFrame on dedicated builds.
+	fps = 30;
+#endif
+	emscripten_set_main_loop(Sys_Frame, fps, 0);
+#else	
+	while( 1 )
+	{
+		Sys_Frame();
+	}
+#endif
+}
+
 int main( int argc, char **argv )
 {
 	int   i;
@@ -648,31 +683,10 @@ int main( int argc, char **argv )
 		Q_strcat( commandLine, sizeof( commandLine ), " " );
 	}
 
-	Com_Init( commandLine );
-	NET_Init( );
+	Com_Init( commandLine, cb_create_context_no_data(main_after_Com_Init) );
 
-	CON_Init( );
-
-	signal( SIGILL, Sys_SigHandler );
-	signal( SIGFPE, Sys_SigHandler );
-	signal( SIGSEGV, Sys_SigHandler );
-	signal( SIGTERM, Sys_SigHandler );
-	signal( SIGINT, Sys_SigHandler );
-
-
-#ifdef EMSCRIPTEN
-	int fps = 0;
-#ifdef DEDICATED
-	// HACK for now to prevent Browser lib from calling
-	// requestAnimationFrame on dedicated builds.
-	fps = 30;
-#endif
-	emscripten_set_main_loop(Sys_Frame, fps, 0);
-#else	
-	while( 1 )
-	{
-		Sys_Frame();
-	}
+#if EMSCRIPTEN
+	emscripten_exit_with_live_runtime();
 #endif
 
 	return 0;

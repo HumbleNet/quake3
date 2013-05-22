@@ -37,6 +37,30 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 //============================================================================
 
 //
+// generic callback support
+//
+struct cb_context_s;
+
+typedef void (*result_cb)(struct cb_context_s *req, int status);
+
+typedef struct cb_context_s {
+	void *data;
+	result_cb cb;
+} cb_context_t;
+
+
+extern unsigned cb_pending;
+cb_context_t *_cb_create_context(result_cb cb, int data_size);
+#define cb_num_pending() cb_pending
+#define cb_create_context(cb, t) _cb_create_context(cb, sizeof(t))
+#define cb_create_context_no_data(cb) _cb_create_context(cb, 0)
+#define cb_run(context, status) context->cb(context, status)
+#define cb_free_context(context) \
+	if (context->data != NULL) { free(context->data); } \
+	free(context); \
+	cb_pending--
+
+//
 // msg.c
 //
 typedef struct {
@@ -604,11 +628,11 @@ issues.
 
 qboolean FS_Initialized( void );
 
-void	FS_InitFilesystem ( void );
-void	FS_Shutdown( qboolean closemfp );
+void	FS_InitFilesystem ( cb_context_t *after );
+void	FS_Shutdown( qboolean closemfp, cb_context_t *after );
 
-qboolean FS_ConditionalRestart(int checksumFeed, qboolean disconnect);
-void	FS_Restart( int checksumFeed );
+void	FS_ConditionalRestart(int checksumFeed, qboolean disconnect, cb_context_t *after);
+void	FS_Restart( int checksumFeed, cb_context_t *after );
 // shutdown and restart the filesystem so changes to fs_gamedir can take effect
 
 void FS_AddGameDirectory( const char *path, const char *dir );
@@ -819,8 +843,8 @@ void		Com_EndRedirect( void );
 void 		QDECL Com_Printf( const char *fmt, ... ) __attribute__ ((format (printf, 1, 2)));
 void 		QDECL Com_DPrintf( const char *fmt, ... ) __attribute__ ((format (printf, 1, 2)));
 void 		QDECL Com_Error( int code, const char *fmt, ... ) __attribute__ ((noreturn, format(printf, 2, 3)));
-void 		Com_Quit_f( void ) __attribute__ ((noreturn));
-void		Com_GameRestart(int checksumFeed, qboolean disconnect);
+void 		Com_Quit_f( void );
+void		Com_GameRestart(int checksumFeed, qboolean disconnect, cb_context_t *after);
 
 int			Com_Milliseconds( void );	// will be journaled properly
 unsigned	Com_BlockChecksum( const void *buffer, int length );
@@ -948,7 +972,7 @@ void Hunk_Log( void);
 void Com_TouchMemory( void );
 
 // commandLine should not include the executable name (argv[0])
-void Com_Init( char *commandLine );
+void Com_Init( char *commandLine, cb_context_t *after );
 void Com_Frame( void );
 void Com_Shutdown( void );
 
