@@ -33,6 +33,14 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include "../client/client.h"
 #include "../sys/sys_local.h"
 
+#if EMSCRIPTEN
+#define SDL_GetKeyState SDL_GetKeyboardState
+#define SDLK_WORLD_0 0xA0
+#define SDLK_WORLD_95 0xFF
+#define SDLK_LSUPER 311
+#define SDLK_RSUPER 312
+#endif
+
 #ifdef MACOS_X
 // Mouse acceleration needs to be disabled
 #define MACOS_X_ACCELERATION_HACK
@@ -400,7 +408,7 @@ static void IN_GobbleMotionEvents( void )
 	// Gobble any mouse motion events
 	SDL_PumpEvents( );
 	while( SDL_PeepEvents( dummy, 1, SDL_GETEVENT,
-		SDL_EVENTMASK( SDL_MOUSEMOTION ) ) ) { }
+		SDL_MOUSEMOTIONMASK ) ) { }
 }
 
 /*
@@ -920,8 +928,10 @@ static void IN_ProcessEvents( void )
 						case SDL_BUTTON_RIGHT:		b = K_MOUSE2;     break;
 						case SDL_BUTTON_WHEELUP:	b = K_MWHEELUP;   break;
 						case SDL_BUTTON_WHEELDOWN:	b = K_MWHEELDOWN; break;
+#if !EMSCRIPTEN
 						case SDL_BUTTON_X1:			b = K_MOUSE4;     break;
 						case SDL_BUTTON_X2:			b = K_MOUSE5;     break;
+#endif
 						default:  b = K_AUX1 + ( e.button.button - SDL_BUTTON_X2 + 1 ) % 16; break;
 					}
 					Com_QueueEvent( 0, SE_KEY, b,
