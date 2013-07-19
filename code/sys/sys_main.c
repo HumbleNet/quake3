@@ -30,6 +30,9 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include <string.h>
 #include <ctype.h>
 #include <errno.h>
+#ifdef EMSCRIPTEN
+#include <emscripten.h>
+#endif
 
 #ifndef DEDICATED
 #ifdef USE_LOCAL_HEADERS
@@ -576,6 +579,16 @@ void Sys_SigHandler( int signal )
 
 /*
 =================
+Sys_Frame
+=================
+*/
+void Sys_Frame() {
+	IN_Frame();
+	Com_Frame();
+}
+
+/*
+=================
 main
 =================
 */
@@ -646,12 +659,21 @@ int main( int argc, char **argv )
 	signal( SIGTERM, Sys_SigHandler );
 	signal( SIGINT, Sys_SigHandler );
 
+
+#ifdef EMSCRIPTEN
+	int fps = 0;
+#ifdef DEDICATED
+	// HACK for now to prevent Browser lib from calling
+	// requestAnimationFrame on dedicated builds.
+	fps = 30;
+#endif
+	emscripten_set_main_loop(Sys_Frame, fps, 0);
+#else	
 	while( 1 )
 	{
-		IN_Frame( );
-		Com_Frame( );
+		Sys_Frame();
 	}
+#endif
 
 	return 0;
 }
-
