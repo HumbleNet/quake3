@@ -154,7 +154,7 @@ struct vm_s {
 
 	// for dynamic linked modules
 	void		*dllHandle;
-	intptr_t			(QDECL *entryPoint)( int callNum, ... );
+	intptr_t			(QDECL *entryPoint)( int callNum, int arg0, int arg1, int arg2, int arg3, int arg4, int arg5, int arg6, int arg7, int arg8, int arg9, int arg10, int arg11 );
 	void (*destroy)(vm_t* self);
 
 	// for interpreted modules
