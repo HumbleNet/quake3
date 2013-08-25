@@ -32,6 +32,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include <signal.h>
 #include <termios.h>
 #include <fcntl.h>
+#include <sys/select.h>
 #include <sys/time.h>
 
 /*
@@ -44,7 +45,7 @@ called before and after a stdout or stderr output
 =============================================================
 */
 
-extern qboolean stdinIsATTY;
+static qboolean stdinIsATTY;
 static qboolean stdin_active;
 // general flag to tell about tty console mode
 static qboolean ttycon_on = qfalse;
@@ -72,6 +73,24 @@ static int hist_current = -1, hist_count = 0;
 #else
 #define TTY_CONSOLE_PROMPT "]"
 #endif
+
+/*
+==================
+CON_IsTTY
+==================
+*/
+qboolean CON_IsTTY() {
+	return stdinIsATTY;
+}
+
+/*
+==================
+CON_SetIsTTY
+==================
+*/
+void CON_SetIsTTY(qboolean isTTY) {
+	stdinIsATTY = isTTY;
+}
 
 /*
 ==================
@@ -302,7 +321,7 @@ void CON_Init( void )
 	// Make stdin reads non-blocking
 	fcntl(STDIN_FILENO, F_SETFL, fcntl(STDIN_FILENO, F_GETFL, 0) | O_NONBLOCK );
 
-	if (!stdinIsATTY)
+	if (!CON_IsTTY())
 	{
 		Com_Printf("tty console mode disabled\n");
 		ttycon_on = qfalse;

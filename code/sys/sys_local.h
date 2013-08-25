@@ -35,6 +35,8 @@ void IN_Shutdown( void );
 void IN_Restart( void );
 
 // Console
+qboolean CON_IsTTY( void );
+void CON_SetIsTTY( qboolean isTTY );
 void CON_Shutdown( void );
 void CON_Init( void );
 char *CON_Input( void );
