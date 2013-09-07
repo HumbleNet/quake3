@@ -481,7 +481,12 @@ qboolean S_AL_BufferInit( void )
 	numSfx = 0;
 
 	// Load the default sound, and lock it
+#if EMSCRIPTEN
+	// We have way too many missing sounds to use hit.wav
+	default_sfx = S_AL_BufferFind("sound/misc/silence.wav");
+#else
 	default_sfx = S_AL_BufferFind("sound/feedback/hit.wav");
+#endif
 	S_AL_BufferUse(default_sfx);
 	knownSfx[default_sfx].isLocked = qtrue;
 
