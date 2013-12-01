@@ -78,48 +78,79 @@ typedef char *  va_list;
 
 // Misc functions
 typedef int cmp_t(const void *, const void *);
-void qsort(void *a, size_t n, size_t es, cmp_t *cmp);
-void	srand( unsigned seed );
-int		rand( void );
+void qk_qsort(void *a, size_t n, size_t es, cmp_t *cmp);
+void qk_srand( unsigned seed );
+int qk_rand( void );
 
 // String functions
-size_t strlen( const char *string );
-char *strcat( char *strDestination, const char *strSource );
-char *strcpy( char *strDestination, const char *strSource );
-int strcmp( const char *string1, const char *string2 );
-char *strchr( const char *string, int c );
-char *strrchr(const char *string, int c);
-char *strstr( const char *string, const char *strCharSet );
-char *strncpy( char *strDest, const char *strSource, size_t count );
-int tolower( int c );
-int toupper( int c );
+size_t qk_strlen( const char *string );
+char *qk_strcat( char *strDestination, const char *strSource );
+char *qk_strcpy( char *strDestination, const char *strSource );
+int qk_strcmp( const char *string1, const char *string2 );
+char *qk_strchr( const char *string, int c );
+char *qk_strrchr(const char *string, int c);
+char *qk_strstr( const char *string, const char *strCharSet );
+char *qk_strncpy( char *strDest, const char *strSource, size_t count );
+int qk_tolower( int c );
+int qk_toupper( int c );
 
-double atof( const char *string );
-double _atof( const char **stringPtr );
-double strtod( const char *nptr, char **endptr );
-int atoi( const char *string );
-int _atoi( const char **stringPtr );
-long strtol( const char *nptr, char **endptr, int base );
+double qk_atof( const char *string );
+double qk_strtod( const char *nptr, char **endptr );
+int qk_atoi( const char *string );
+long qk_strtol( const char *nptr, char **endptr, int base );
 
-int Q_vsnprintf( char *buffer, size_t length, const char *fmt, va_list argptr );
+int qk_vsnprintf( char *buffer, size_t length, const char *fmt, va_list argptr );
 
-int sscanf( const char *buffer, const char *fmt, ... ) __attribute__ ((format (scanf, 2, 3)));
+int qk_sscanf( const char *buffer, const char *fmt, ... ) __attribute__ ((format (scanf, 2, 3)));
 
 // Memory functions
-void *memmove( void *dest, const void *src, size_t count );
-void *memset( void *dest, int c, size_t count );
-void *memcpy( void *dest, const void *src, size_t count );
+void *qk_memmove( void *dest, const void *src, size_t count );
+void *qk_memset( void *dest, int c, size_t count );
+void *qk_memcpy( void *dest, const void *src, size_t count );
 
 // Math functions
-double ceil( double x );
-double floor( double x );
-double sqrt( double x );
-double sin( double x );
-double cos( double x );
-double atan2( double y, double x );
-double tan( double x );
-int abs( int n );
-double fabs( double x );
-double acos( double x );
+double qk_ceil( double x );
+double qk_floor( double x );
+double qk_sqrt( double x );
+double qk_sin( double x );
+double qk_cos( double x );
+double qk_atan2( double y, double x );
+double qk_tan( double x );
+int qk_abs( int n );
+double qk_fabs( double x );
+double qk_acos( double x );
+
+#define qsort       qk_qsort
+#define srand       qk_srand
+#define rand        qk_rand
+#define strlen      qk_strlen
+#define strcat      qk_strcat
+#define strcpy      qk_strcpy
+#define strcmp      qk_strcmp
+#define strchr      qk_strchr
+#define strrchr     qk_strrchr
+#define strstr      qk_strstr
+#define strncpy     qk_strncpy
+#define tolower     qk_tolower
+#define toupper     qk_toupper
+#define atof        qk_atof
+#define strtod      qk_strtod
+#define atoi        qk_atoi
+#define strtol      qk_strtol
+#define Q_vsnprintf qk_vsnprintf
+#define sscanf      qk_sscanf
+#define memmove     qk_memmove
+#define memset      qk_memset
+#define memcpy      qk_memcpy
+#define ceil        qk_ceil
+#define floor       qk_floor
+#define sqrt        qk_sqrt
+#define sin         qk_sin
+#define cos         qk_cos
+#define atan2       qk_atan2
+#define tan         qk_tan
+#define abs         qk_abs
+#define fabs        qk_fabs
+#define acos        qk_acos
 
 #endif // BG_LIB_H

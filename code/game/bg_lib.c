@@ -97,7 +97,7 @@ med3(a, b, c, cmp)
 }
 
 void
-qsort(a, n, es, cmp)
+qk_qsort(a, n, es, cmp)
 	void *a;
 	size_t n, es;
 	cmp_t *cmp;
@@ -180,7 +180,7 @@ loop:	SWAPINIT(a, es);
 
 //==================================================================================
 
-size_t strlen( const char *string ) {
+size_t qk_strlen( const char *string ) {
 	const char	*s;
 
 	s = string;
@@ -191,7 +191,7 @@ size_t strlen( const char *string ) {
 }
 
 
-char *strcat( char *strDestination, const char *strSource ) {
+char *qk_strcat( char *strDestination, const char *strSource ) {
 	char	*s;
 
 	s = strDestination;
@@ -205,7 +205,7 @@ char *strcat( char *strDestination, const char *strSource ) {
 	return strDestination;
 }
 
-char *strcpy( char *strDestination, const char *strSource ) {
+char *qk_strcpy( char *strDestination, const char *strSource ) {
 	char *s;
 
 	s = strDestination;
@@ -217,7 +217,7 @@ char *strcpy( char *strDestination, const char *strSource ) {
 }
 
 
-int strcmp( const char *string1, const char *string2 ) {
+int qk_strcmp( const char *string1, const char *string2 ) {
 	while ( *string1 == *string2 && *string1 && *string2 ) {
 		string1++;
 		string2++;
@@ -226,7 +226,7 @@ int strcmp( const char *string1, const char *string2 ) {
 }
 
 
-char *strchr( const char *string, int c ) {
+char *qk_strchr( const char *string, int c ) {
 	while ( *string ) {
 		if ( *string == c ) {
 			return ( char * )string;
@@ -240,7 +240,7 @@ char *strchr( const char *string, int c ) {
 		return (char *) string;
 }
 
-char *strrchr(const char *string, int c)
+char *qk_strrchr(const char *string, int c)
 {
 	const char *found = NULL;
 	
@@ -258,7 +258,7 @@ char *strrchr(const char *string, int c)
 		return (char *) string;
 }
 
-char *strstr( const char *string, const char *strCharSet ) {
+char *qk_strstr( const char *string, const char *strCharSet ) {
 	while ( *string ) {
 		int		i;
 
@@ -275,7 +275,7 @@ char *strstr( const char *string, const char *strCharSet ) {
 	return (char *)0;
 }
 
-int tolower( int c ) {
+int qk_tolower( int c ) {
 	if ( c >= 'A' && c <= 'Z' ) {
 		c += 'a' - 'A';
 	}
@@ -283,14 +283,14 @@ int tolower( int c ) {
 }
 
 
-int toupper( int c ) {
+int qk_toupper( int c ) {
 	if ( c >= 'a' && c <= 'z' ) {
 		c += 'A' - 'a';
 	}
 	return c;
 }
 
-void *memmove(void *dest, const void *src, size_t count)
+void *qk_memmove(void *dest, const void *src, size_t count)
 {
 	size_t		i;
 
@@ -316,28 +316,27 @@ void *memmove(void *dest, const void *src, size_t count)
 	return dest;
 }
 
-
 #if 0
 
-double floor( double x ) {
+double qk_floor( double x ) {
 	return (int)(x + 0x40000000) - 0x40000000;
 }
 
-void *memset( void *dest, int c, size_t count ) {
+void *qk_memset( void *dest, int c, size_t count ) {
 	while ( count-- ) {
 		((char *)dest)[count] = c;
 	}
 	return dest;
 }
 
-void *memcpy( void *dest, const void *src, size_t count ) {
+void *qk_memcpy( void *dest, const void *src, size_t count ) {
 	while ( count-- ) {
 		((char *)dest)[count] = ((char *)src)[count];
 	}
 	return dest;
 }
 
-char *strncpy( char *strDest, const char *strSource, size_t count ) {
+char *qk_strncpy( char *strDest, const char *strSource, size_t count ) {
 	char	*s;
 
 	s = strDest;
@@ -351,7 +350,7 @@ char *strncpy( char *strDest, const char *strSource, size_t count ) {
 	return strDest;
 }
 
-double sqrt( double x ) {
+double qk_sqrt( double x ) {
 	float	y;
 	float	delta;
 	float	maxError;
@@ -506,7 +505,7 @@ float sintable[1024] = {
 0.999925,0.999942,0.999958,0.999971,0.999981,0.999989,0.999995,0.999999
 };
 
-double sin( double x ) {
+double qk_sin( double x ) {
 	int	index;
 	int	quad;
 
@@ -527,7 +526,7 @@ double sin( double x ) {
 }
 
 
-double cos( double x ) {
+double qk_cos( double x ) {
 	int	index;
 	int	quad;
 
@@ -696,9 +695,9 @@ float acostable[] = {
 0.30739505,0.30087304,0.29421096,0.28739907,0.28042645,0.27328078,0.26594810,0.25841250,
 0.25065566,0.24265636,0.23438976,0.22582651,0.21693146,0.20766198,0.19796546,0.18777575,
 0.17700769,0.16554844,0.15324301,0.13986823,0.12508152,0.10830610,0.08841715,0.06251018,
-}
+};
 
-double acos( double x ) {
+double qk_acos( double x ) {
 	int index;
 
 	if (x < -1)
@@ -709,8 +708,8 @@ double acos( double x ) {
 	return acostable[index];
 }
 
-double atan2( double y, double x ) {
-	float	base;
+double qk_atan2( double y, double x ) {
+	float	base = 0.0f;
 	float	temp;
 	float	dir;
 	float	test;
@@ -765,7 +764,6 @@ double atan2( double y, double x ) {
 	return base + dir * i * ( M_PI/2048); 
 }
 
-
 #endif
 
 /*
@@ -805,23 +803,23 @@ static double powN( double base, int exp )
 		return 1.0 / powN( base, -exp );
 }
 
-double tan( double x ) {
+double qk_tan( double x ) {
 	return sin(x) / cos(x);
 }
 
 
 static int randSeed = 0;
 
-void	srand( unsigned seed ) {
+void qk_srand( unsigned seed ) {
 	randSeed = seed;
 }
 
-int		rand( void ) {
+int qk_rand( void ) {
 	randSeed = (69069 * randSeed + 1);
 	return randSeed & 0x7fff;
 }
 
-double atof( const char *string ) {
+double qk_atof( const char *string ) {
 	float sign;
 	float value;
 	int		c;
@@ -888,7 +886,7 @@ double atof( const char *string ) {
 	return value * sign;
 }
 
-double _atof( const char **stringPtr ) {
+double _qk_atof( const char **stringPtr ) {
 	const char	*string;
 	float sign;
 	float value;
@@ -970,7 +968,7 @@ The variable pointed to by endptr will hold the location of the first character
 in the nptr string that was not used in the conversion
 ==============
 */
-double strtod( const char *nptr, char **endptr )
+double qk_strtod( const char *nptr, char **endptr )
 {
 	double res;
 	qboolean neg = qfalse;
@@ -1141,7 +1139,7 @@ double strtod( const char *nptr, char **endptr )
 	}
 }
 
-int atoi( const char *string ) {
+int qk_atoi( const char *string ) {
 	int		sign;
 	int		value;
 	int		c;
@@ -1187,7 +1185,7 @@ int atoi( const char *string ) {
 }
 
 
-int _atoi( const char **stringPtr ) {
+int _qk_atoi( const char **stringPtr ) {
 	int		sign;
 	int		value;
 	int		c;
@@ -1246,7 +1244,7 @@ Will not overflow - returns LONG_MIN or LONG_MAX as appropriate
 *endptr is set to the location of the first character not used
 ==============
 */
-long strtol( const char *nptr, char **endptr, int base )
+long qk_strtol( const char *nptr, char **endptr, int base )
 {
 	long res;
 	qboolean pos = qtrue;
@@ -1327,11 +1325,11 @@ long strtol( const char *nptr, char **endptr, int base )
 	return res;
 }
 
-int abs( int n ) {
+int qk_abs( int n ) {
 	return n < 0 ? -n : n;
 }
 
-double fabs( double x ) {
+double qk_fabs( double x ) {
 	return x < 0 ? -x : x;
 }
 
@@ -2058,13 +2056,13 @@ static int dopr_outch (char *buffer, size_t *currlen, size_t maxlen, char c)
   return 1;
 }
 
-int Q_vsnprintf(char *str, size_t length, const char *fmt, va_list args)
+int qk_vsnprintf(char *str, size_t length, const char *fmt, va_list args)
 {
 	return dopr(str, length, fmt, args);
 }
 
 /* this is really crappy */
-int sscanf( const char *buffer, const char *fmt, ... ) {
+int qk_sscanf( const char *buffer, const char *fmt, ... ) {
 	int		cmd;
 	va_list		ap;
 	int		count;
@@ -2083,7 +2081,7 @@ int sscanf( const char *buffer, const char *fmt, ... ) {
 		cmd = *fmt;
 
 		if (isdigit (cmd)) {
-			len = (size_t)_atoi (&fmt);
+			len = (size_t)_qk_atoi (&fmt);
 			cmd = *(fmt - 1);
 		} else {
 			len = MAX_STRING_CHARS - 1;
@@ -2094,10 +2092,10 @@ int sscanf( const char *buffer, const char *fmt, ... ) {
 		case 'i':
 		case 'd':
 		case 'u':
-			*(va_arg (ap, int *)) = _atoi( &buffer );
+			*(va_arg (ap, int *)) = _qk_atoi( &buffer );
 			break;
 		case 'f':
-			*(va_arg (ap, float *)) = _atof( &buffer );
+			*(va_arg (ap, float *)) = _qk_atof( &buffer );
 			break;
 		case 's':
 			{
