@@ -190,7 +190,7 @@ static void GLimp_DetectAvailableModes(void)
 GLimp_SetMode
 ===============
 */
-static int GLimp_SetMode(int mode, qboolean fullscreen, qboolean noborder)
+int GLimp_SetMode(int mode, qboolean fullscreen, qboolean noborder)
 {
 	const char*   glstring;
 	int sdlcolorbits;
@@ -812,7 +812,7 @@ void GLimp_EndFrame( void )
 		{
 			// SDL_WM_ToggleFullScreen didn't work, so do it the slow way
 			if( !sdlToggled )
-				ri.Cmd_ExecuteText(EXEC_APPEND, "vid_restart\n");
+				ri.Cmd_ExecuteText(EXEC_APPEND, "vid_restart fast\n");
 
 			ri.IN_Restart( );
 		}

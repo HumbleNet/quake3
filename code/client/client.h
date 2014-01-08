@@ -318,6 +318,23 @@ typedef struct {
 	int			g_needpass;
 } serverInfo_t;
 
+#if EMSCRIPTEN
+
+#define MAX_PATCHES  8
+
+typedef enum {
+	PATCH_NONE,
+	PATCH_XSCALE,
+	PATCH_YSCALE,
+	PATCH_BIAS
+} patch_type_t;
+
+typedef struct patch_s {
+	patch_type_t type;
+	void *addr;
+} patch_t;
+
+#endif
 typedef struct {
 	qboolean	cddialog;			// bring up the cd needed dialog next frame
 
@@ -360,6 +377,21 @@ typedef struct {
 	qhandle_t	charSetShader;
 	qhandle_t	whiteShader;
 	qhandle_t	consoleShader;
+
+#if EMSCRIPTEN
+	glconfig_t *uiGlConfig;
+
+	patch_t uiPatches[MAX_PATCHES];
+	unsigned numUiPatches;
+
+	// the cgame scales are normally stuffed somewhere inbetween
+	// cgameGlConfig and cgameFirstCvar
+	glconfig_t *cgameGlConfig;
+	vmCvar_t *cgameFirstCvar;
+
+	patch_t cgamePatches[MAX_PATCHES];
+	unsigned numCgamePatches;
+#endif
 } clientStatic_t;
 
 extern	clientStatic_t		cls;

@@ -1531,6 +1531,24 @@ void RE_EndRegistration( void ) {
 	}
 }
 
+#if EMSCRIPTEN
+/*
+=============
+RE_UpdateMode
+=============
+*/
+void RE_UpdateMode(glconfig_t *glconfigOut) {
+	R_IssuePendingRenderCommands();
+
+	GLimp_SetMode(r_mode->integer, r_fullscreen->integer, r_noborder->integer);
+
+	GL_SetDefaultState();
+
+	GL_CheckErrors();
+
+	*glconfigOut = glConfig;
+}
+#endif
 
 /*
 @@@@@@@@@@@@@@@@@@@@@
@@ -1595,6 +1613,10 @@ refexport_t *GetRefAPI ( int apiVersion, refimport_t *rimp ) {
 	re.inPVS = R_inPVS;
 
 	re.TakeVideoFrame = RE_TakeVideoFrame;
+
+#if EMSCRIPTEN
+	re.UpdateMode = RE_UpdateMode;
+#endif
 
 	return &re;
 }

@@ -896,6 +896,9 @@ intptr_t CL_UISystemCalls( intptr_t *args ) {
 		return 0;		
 
 	case UI_GETGLCONFIG:
+#if EMSCRIPTEN
+		cls.uiGlConfig = VMA(1);
+#endif
 		CL_GetGlconfig( VMA(1) );
 		return 0;
 
@@ -1084,6 +1087,11 @@ void CL_ShutdownUI( void ) {
 	VM_Call( uivm, UI_SHUTDOWN );
 	VM_Free( uivm );
 	uivm = NULL;
+
+#if EMSCRIPTEN
+	cls.uiGlConfig = NULL;
+	cls.numUiPatches = 0;
+#endif
 }
 
 /*
