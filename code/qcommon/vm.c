@@ -1006,3 +1006,12 @@ void VM_BlockCopy(unsigned int dest, unsigned int src, size_t n)
 
 	Com_Memcpy(currentVM->dataBase + dest, currentVM->dataBase + src, n);
 }
+
+#if EMSCRIPTEN
+vm_t *VM_GetCurrent() {
+	return currentVM;
+}
+void VM_SetCurrent(vm_t *vm) {
+	currentVM = vm;
+}
+#endif
