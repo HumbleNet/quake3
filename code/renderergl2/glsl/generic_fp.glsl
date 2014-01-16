@@ -6,6 +6,10 @@ uniform sampler2D u_LightMap;
 uniform int       u_Texture1Env;
 #endif
 
+#if defined(USE_RGBAGEN)
+uniform int       u_AlphaTest;
+#endif
+
 varying vec2      var_DiffuseTex;
 
 #if defined(USE_LIGHTMAP)
@@ -42,4 +46,13 @@ void main()
 #endif
 
 	gl_FragColor = color * var_Color;
+
+#if defined(USE_RGBAGEN)
+	if ((u_AlphaTest == ATEST_GT_0 && gl_FragColor.a <= 0.0) ||
+	    (u_AlphaTest == ATEST_LT_80 && gl_FragColor.a >= 0.5) ||
+	    (u_AlphaTest == ATEST_GE_80 && gl_FragColor.a < 0.5))
+	{
+		discard;
+	}
+#endif
 }

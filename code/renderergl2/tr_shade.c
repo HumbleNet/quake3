@@ -420,10 +420,10 @@ static void ProjectDlightTexture( void ) {
 		// include GLS_DEPTHFUNC_EQUAL so alpha tested surfaces don't add light
 		// where they aren't rendered
 		if ( dl->additive ) {
-			GL_State( GLS_ATEST_GT_0 | GLS_SRCBLEND_ONE | GLS_DSTBLEND_ONE | GLS_DEPTHFUNC_EQUAL );
+			GL_State( GLS_SRCBLEND_ONE | GLS_DSTBLEND_ONE | GLS_DEPTHFUNC_EQUAL );
 		}
 		else {
-			GL_State( GLS_ATEST_GT_0 | GLS_SRCBLEND_DST_COLOR | GLS_DSTBLEND_ONE | GLS_DEPTHFUNC_EQUAL );
+			GL_State( GLS_SRCBLEND_DST_COLOR | GLS_DSTBLEND_ONE | GLS_DEPTHFUNC_EQUAL );
 		}
 
 		if (tess.multiDrawPrimitives)
@@ -799,6 +799,7 @@ static void ForwardDlight( void ) {
 
 		GLSL_SetUniformInt(sp, UNIFORM_COLORGEN, pStage->rgbGen);
 		GLSL_SetUniformInt(sp, UNIFORM_ALPHAGEN, pStage->alphaGen);
+		GLSL_SetUniformInt(sp, UNIFORM_ALPHATEST, pStage->alphaTest);
 
 		GLSL_SetUniformVec3(sp, UNIFORM_DIRECTEDLIGHT, dl->color);
 
@@ -1071,7 +1072,7 @@ static void RB_IterateStagesGeneric( shaderCommands_t *input )
 					index |= LIGHTDEF_ENTITY;
 				}
 
-				if (pStage->stateBits & GLS_ATEST_BITS)
+				if (pStage->alphaTest)
 				{
 					index |= LIGHTDEF_USE_TCGEN_AND_TCMOD;
 				}
@@ -1092,9 +1093,10 @@ static void RB_IterateStagesGeneric( shaderCommands_t *input )
 					shaderAttribs |= GENERICDEF_USE_VERTEX_ANIMATION;
 				}
 
-				if (pStage->stateBits & GLS_ATEST_BITS)
+				if (pStage->alphaTest)
 				{
 					shaderAttribs |= GENERICDEF_USE_TCGEN_AND_TCMOD;
+					shaderAttribs |= GENERICDEF_USE_RGBAGEN;
 				}
 
 				sp = &tr.genericShader[shaderAttribs];
@@ -1195,6 +1197,7 @@ static void RB_IterateStagesGeneric( shaderCommands_t *input )
 
 		GLSL_SetUniformInt(sp, UNIFORM_COLORGEN, pStage->rgbGen);
 		GLSL_SetUniformInt(sp, UNIFORM_ALPHAGEN, pStage->alphaGen);
+		GLSL_SetUniformInt(sp, UNIFORM_ALPHATEST, pStage->alphaTest);
 
 		if ( input->fogNum )
 		{
@@ -1231,7 +1234,7 @@ static void RB_IterateStagesGeneric( shaderCommands_t *input )
 		//
 		if ( backEnd.depthFill )
 		{
-			if (!(pStage->stateBits & GLS_ATEST_BITS))
+			if (!pStage->alphaTest)
 				GL_BindToTMU( tr.whiteImage, 0 );
 			else if ( pStage->bundle[TB_COLORMAP].image[0] != 0 )
 				R_BindAnimatedImageToTMU( &pStage->bundle[TB_COLORMAP], TB_COLORMAP );

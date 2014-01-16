@@ -150,19 +150,19 @@ static qboolean ParseVector( char **text, int count, float *v ) {
 NameToAFunc
 ===============
 */
-static unsigned NameToAFunc( const char *funcname )
+static alphaTest_t NameToAFunc( const char *funcname )
 {	
 	if ( !Q_stricmp( funcname, "GT0" ) )
 	{
-		return GLS_ATEST_GT_0;
+		return ATEST_GT_0;
 	}
 	else if ( !Q_stricmp( funcname, "LT128" ) )
 	{
-		return GLS_ATEST_LT_80;
+		return ATEST_LT_80;
 	}
 	else if ( !Q_stricmp( funcname, "GE128" ) )
 	{
-		return GLS_ATEST_GE_80;
+		return ATEST_GE_80;
 	}
 
 	ri.Printf( PRINT_WARNING, "WARNING: invalid alphaFunc name '%s' in shader '%s'\n", funcname, shader.name );
@@ -601,7 +601,7 @@ ParseStage
 static qboolean ParseStage( shaderStage_t *stage, char **text )
 {
 	char *token;
-	int depthMaskBits = GLS_DEPTHMASK_TRUE, blendSrcBits = 0, blendDstBits = 0, atestBits = 0, depthFuncBits = 0;
+	int depthMaskBits = GLS_DEPTHMASK_TRUE, blendSrcBits = 0, blendDstBits = 0, depthFuncBits = 0;
 	qboolean depthMaskExplicit = qfalse;
 
 	stage->active = qtrue;
@@ -815,7 +815,7 @@ static qboolean ParseStage( shaderStage_t *stage, char **text )
 				return qfalse;
 			}
 
-			atestBits = NameToAFunc( token );
+			stage->alphaTest = NameToAFunc( token );
 		}
 		//
 		// depthFunc <func>
@@ -1235,10 +1235,7 @@ static qboolean ParseStage( shaderStage_t *stage, char **text )
 	//
 	// compute state bits
 	//
-	stage->stateBits = depthMaskBits | 
-		               blendSrcBits | blendDstBits | 
-					   atestBits | 
-					   depthFuncBits;
+	stage->stateBits = depthMaskBits | blendSrcBits | blendDstBits | depthFuncBits;
 
 	return qtrue;
 }
@@ -2324,7 +2321,7 @@ static qboolean CollapseStagesToGLSL(void)
 			if (!pStage->active)
 				continue;
 
-			if (pStage->adjustColorsForFog)
+			if (pStage->adjustColorsForFog || pStage->alphaTest)
 			{
 				skip = qtrue;
 				break;

@@ -239,6 +239,13 @@ typedef enum {
 } alphaGen_t;
 
 typedef enum {
+	ATEST_NONE,
+	ATEST_GT_0,
+	ATEST_LT_80,
+	ATEST_GE_80
+} alphaTest_t;
+
+typedef enum {
 	CGEN_BAD,
 	CGEN_IDENTITY_LIGHTING,	// tr.identityLight
 	CGEN_IDENTITY,			// always (1,1,1,1)
@@ -388,6 +395,7 @@ typedef struct {
 
 	waveForm_t		alphaWave;
 	alphaGen_t		alphaGen;
+	alphaTest_t		alphaTest;
 
 	byte			constantColor[4];			// for CGEN_CONST and AGEN_CONST
 
@@ -650,6 +658,7 @@ typedef enum
 
 	UNIFORM_COLORGEN,
 	UNIFORM_ALPHAGEN,
+	UNIFORM_ALPHATEST,
 	UNIFORM_COLOR,
 	UNIFORM_BASECOLOR,
 	UNIFORM_VERTCOLOR,
@@ -1922,11 +1931,6 @@ void	GL_Cull( int cullType );
 #define GLS_DEPTHFUNC_EQUAL						0x00020000
 #define GLS_DEPTHFUNC_GREATER                   0x00040000
 #define GLS_DEPTHFUNC_BITS                      0x00060000
-
-#define GLS_ATEST_GT_0							0x10000000
-#define GLS_ATEST_LT_80							0x20000000
-#define GLS_ATEST_GE_80							0x40000000
-#define		GLS_ATEST_BITS						0x70000000
 
 #define GLS_DEFAULT			GLS_DEPTHMASK_TRUE
 

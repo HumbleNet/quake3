@@ -99,6 +99,7 @@ static uniformInfo_t uniformsInfo[] =
 
 	{ "u_ColorGen",  GLSL_INT },
 	{ "u_AlphaGen",  GLSL_INT },
+	{ "u_AlphaTest", GLSL_INT },
 	{ "u_Color",     GLSL_VEC4 },
 	{ "u_BaseColor", GLSL_VEC4 },
 	{ "u_VertColor", GLSL_VEC4 },
@@ -303,6 +304,17 @@ static void GLSL_GetShaderHeader( GLenum shaderType, const GLcharARB *extra, cha
 								"#endif\n",
 								AGEN_LIGHTING_SPECULAR,
 								AGEN_PORTAL));
+
+	Q_strcat(dest, size,
+							 va("#ifndef alphaTest_t\n"
+								"#define alphaTest_t\n"
+								"#define ATEST_GT_0 %i\n"
+								"#define ATEST_LT_80 %i\n"
+								"#define ATEST_GE_80 %i\n"
+								"#endif\n",
+								ATEST_GT_0,
+								ATEST_LT_80,
+								ATEST_GE_80));
 
 	Q_strcat(dest, size,
 							 va("#ifndef texenv_t\n"
@@ -1790,6 +1802,11 @@ shaderProgram_t *GLSL_GetGenericShaderProgram(int stage)
 			break;
 		default:
 			break;
+	}
+
+	if (pStage->alphaTest)
+	{
+		shaderAttribs |= GENERICDEF_USE_RGBAGEN;
 	}
 
 	if (pStage->bundle[0].tcGen != TCGEN_TEXTURE)
