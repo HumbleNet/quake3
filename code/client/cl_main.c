@@ -1075,6 +1075,35 @@ static void CL_CompleteDemoName( char *args, int argNum )
 
 /*
 ====================
+CL_ReadDemoConnectionMessages
+
+This function is called at the end of CL_PlayDemo_f, and after
+any potentially asynchronous operation (CL_InitCGame).
+====================
+*/
+void CL_ReadDemoConnectionMessages( void ) {
+	if (!clc.demoplaying || clc.state >= CA_PRIMED) {
+		return;
+	}
+
+	// read demo messages until connected
+	while (clc.state < CA_LOADING) {
+		CL_ReadDemoMessage();
+
+		// an async function was called, stop reading, once the function
+		// completes it'll call back in here
+		if (cb_num_pending()) {
+			return;
+		}
+	}
+
+	// don't get the first snapshot this frame, to prevent the long
+	// time from the gamestate load from messing causing a time skip
+	clc.firstDemoFrameSkipped = qfalse;
+}
+
+/*
+====================
 CL_PlayDemo_f
 
 demo <demoname>
@@ -1160,15 +1189,8 @@ void CL_PlayDemo_f( void ) {
 		clc.compat = qfalse;
 #endif
 
-	// read demo messages until connected
-	while ( clc.state >= CA_CONNECTED && clc.state < CA_PRIMED ) {
-		CL_ReadDemoMessage();
-	}
-	// don't get the first snapshot this frame, to prevent the long
-	// time from the gamestate load from messing causing a time skip
-	clc.firstDemoFrameSkipped = qfalse;
+	CL_ReadDemoConnectionMessages();
 }
-
 
 /*
 ====================
@@ -1946,8 +1968,6 @@ void CL_Vid_Restart_f_after_FS_ConditionalRestart(cb_context_t *context, int gam
 	{
 		cls.cgameStarted = qtrue;
 		CL_InitCGame();
-		// send pure checksums
-		CL_SendPureChecksums();
 	}
 }
 
@@ -2343,13 +2363,6 @@ void CL_DownloadsComplete( void ) {
 	// initialize the CGame
 	cls.cgameStarted = qtrue;
 	CL_InitCGame();
-
-	// set pure checksums
-	CL_SendPureChecksums();
-
-	CL_WritePacket();
-	CL_WritePacket();
-	CL_WritePacket();
 }
 
 /*
@@ -3137,10 +3150,35 @@ CL_Frame
 ==================
 */
 void CL_Frame ( int msec ) {
-
 	if ( !com_cl_running->integer ) {
 		return;
 	}
+
+#if EMSCRIPTEN
+	// quake3's loading process is entirely synchronous. throughout this
+	// process it will call trap_UpdateScreen to force an immediate buffer
+	// swap. however, in WebGL we can't force an immediate buffer swap,
+	// it only occurs once we've yielded to the event loop. due to the
+	// synchronous design however, the event loop is blocked and the
+	// loading screen is therefor never rendered
+	//
+	// to get around this, the JS VM code has a special case for trap_UpdateScreen
+	// that suspends the execution of the VM after it has been invoked,
+	// enabling the event loop to breath. we're checking here if it has
+	// been suspended, and resuming it if so now that we've successfully
+	// swapped buffers
+	if (cgvm && VM_IsSuspended(cgvm)) {
+		unsigned result = VM_Resume(cgvm);
+
+		if (result == 0xDEADBEEF) {
+			return;
+		}
+
+		if (clc.state == CA_LOADING) {
+			CL_InitCGameFinished();
+		}
+	}
+#endif
 
 #ifdef USE_CURL
 	if(clc.downloadCURLM) {

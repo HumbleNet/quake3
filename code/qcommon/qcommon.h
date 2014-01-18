@@ -404,6 +404,11 @@ static ID_INLINE float _vmf(intptr_t x)
 }
 #define	VMF(x)	_vmf(args[x])
 
+#if EMSCRIPTEN
+qboolean VM_IsSuspended(vm_t *vm);
+void VM_Suspend(vm_t *vm, unsigned pc, unsigned sp);
+int VM_Resume(vm_t *vm);
+#endif
 
 /*
 ==============================================================

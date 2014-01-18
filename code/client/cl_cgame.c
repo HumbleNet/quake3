@@ -389,6 +389,15 @@ void CL_ShutdownCGame( void ) {
 	if ( !cgvm ) {
 		return;
 	}
+
+#if EMSCRIPTEN
+	// if we're still starting up, we need to finish before
+	// we can shutdown
+	while (VM_IsSuspended(cgvm)) {
+		VM_Resume(cgvm);
+	}
+#endif
+
 	VM_Call( cgvm, CG_SHUTDOWN );
 	VM_Free( cgvm );
 	cgvm = NULL;
@@ -726,10 +735,11 @@ CL_InitCGame
 Should only be called by CL_StartHunkUsers
 ====================
 */
+static int t1, t2;
+
 void CL_InitCGame( void ) {
 	const char			*info;
 	const char			*mapname;
-	int					t1, t2;
 	vmInterpret_t		interpret;
 
 	t1 = Sys_Milliseconds();
@@ -760,8 +770,24 @@ void CL_InitCGame( void ) {
 	// init for this gamestate
 	// use the lastExecutedServerCommand instead of the serverCommandSequence
 	// otherwise server commands sent just before a gamestate are dropped
-	VM_Call( cgvm, CG_INIT, clc.serverMessageSequence, clc.lastExecutedServerCommand, clc.clientNum );
+	unsigned result = VM_Call( cgvm, CG_INIT, clc.serverMessageSequence, clc.lastExecutedServerCommand, clc.clientNum );
 
+#if EMSCRIPTEN
+	// if the VM was suspended during initialization, we'll finish initialization later
+	if (result == 0xDEADBEEF) {
+		return;
+	}
+#endif
+
+	CL_InitCGameFinished();
+}
+
+/*
+====================
+CL_InitCGameFinished
+====================
+*/
+void CL_InitCGameFinished() {
 	// reset any CVAR_CHEAT cvars registered by cgame
 	if ( !clc.demoplaying && !cl_connectedToCheatServer )
 		Cvar_SetCheatState();
@@ -785,8 +811,16 @@ void CL_InitCGame( void ) {
 
 	// clear anything that got printed
 	Con_ClearNotify ();
-}
 
+	// set pure checksums
+	CL_SendPureChecksums();
+
+	CL_WritePacket();
+	CL_WritePacket();
+	CL_WritePacket();
+
+	CL_ReadDemoConnectionMessages();
+}
 
 /*
 ====================
@@ -799,6 +833,14 @@ qboolean CL_GameCommand( void ) {
 	if ( !cgvm ) {
 		return qfalse;
 	}
+
+#if EMSCRIPTEN
+		// it's possible (and happened in Q3F) that the game executes a console command
+		// before the frame has resumed the vm
+		if (VM_IsSuspended(cgvm)) {
+			return qfalse;
+		}
+#endif
 
 	return VM_Call( cgvm, CG_CONSOLE_COMMAND );
 }

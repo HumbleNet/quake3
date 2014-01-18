@@ -1008,9 +1008,43 @@ void VM_BlockCopy(unsigned int dest, unsigned int src, size_t n)
 }
 
 #if EMSCRIPTEN
+qboolean VM_IsSuspended(vm_t * vm) {
+#ifndef NO_VM_COMPILED
+		if (vm->compiled) {
+			return VM_IsSuspendedCompiled(vm);
+		}
+#endif
+		// return VM_IsSuspendedInterpreted(vm);
+		return qfalse;
+}
+
+void VM_Suspend(vm_t *vm, unsigned pc, unsigned sp) {
+#ifndef NO_VM_COMPILED
+		if (vm->compiled) {
+			VM_SuspendCompiled(vm, pc, sp);
+			return;
+		}
+#endif
+		// VM_SuspendInterpreted(vm, pc, sp);
+		// return;
+		Com_Error(ERR_FATAL, "VM_SuspendInterpreted not implemented");
+}
+
+int VM_Resume(vm_t *vm) {
+#ifndef NO_VM_COMPILED
+		if (vm->compiled) {
+			return VM_ResumeCompiled(vm);
+		}
+#endif
+		// return VM_ResumeInterpreted(vm);
+		Com_Error(ERR_FATAL, "VM_ResumeInterpreted not implemented");
+
+}
+
 vm_t *VM_GetCurrent() {
 	return currentVM;
 }
+
 void VM_SetCurrent(vm_t *vm) {
 	currentVM = vm;
 }

@@ -39,7 +39,9 @@ var LibraryVM = {
 			['i32', 'numJumpTableTargets']
 		]),
 		vms: [],
+		SUSPENDED: 0xDEADBEEF,
 		MAX_VMMAIN_ARGS: 13,
+		ENTRY_FRAME_SIZE: 8 + 4 * 13,
 		OPSTACK_SIZE: 1024,
 		TYPE: {
 			F4: 1,
@@ -605,11 +607,56 @@ var LibraryVM = {
 				EmitStatement('{{{ makeCopyValues("' + OFFSET_STR(dest) + '", "' + OFFSET_STR(src) + '", "' + bytes + '", "i8") }}};');
 			}
 
-			EmitStatement('(function (syscall) {');
+			EmitStatement('(function () {');
 			indent++;
 
 			EmitStatement('var FUNCTIONS = {};');
 			EmitStatement('var STACKTOP;');
+
+			EmitStatement('function syscall(callnum) {');
+			EmitStatement('\tcallnum = ~callnum;');
+			EmitStatement('\t// save the current vm');
+			EmitStatement('\tvar savedVM = _VM_GetCurrent();');
+			EmitStatement('\tvar stackOnEntry = STACKTOP;');
+			EmitStatement('\tvar image = {{{ makeGetValue("savedVM", "VM.vm_t.dataBase", "i32") }}};');
+			EmitStatement('\t// store the callnum in the return address space');
+			EmitStatement('\tvar returnAddr = {{{ makeGetValue("image", "stackOnEntry + 4", "i32") }}};');
+			EmitStatement('\t{{{ makeSetValue("image", "stackOnEntry + 4", "callnum", "i32") }}};');
+			// MEGA HACK FOR CPMA 1.47
+			// it uses the default model mynx which we don't have. if
+			// it fails to load the default model, the game will exit
+			if (fs_game === 'cpma' && name === 'cgame') {
+				EmitStatement('\tif (callnum === 10 /* trap_FS_FOpenFile */ || callnum === 34 /* trap_S_RegisterSound */ || callnum === 37 /* trap_R_RegisterModel */ || callnum === 38 /* trap_R_RegisterSkin */) {');
+				EmitStatement('\t\tvar modelName = Pointer_stringify(' + state.dataBase + ' + {{{ makeGetValue("image", "stackOnEntry + 8", "i32") }}});');
+				EmitStatement('\t\tif (modelName.indexOf("/mynx") !== -1) {');
+				EmitStatement('\t\t\tmodelName = modelName.replace("/mynx", "/sarge");');
+				EmitStatement('\t\t\tSTACKTOP -= modelName.length+1;');
+				EmitStatement('\t\t\twriteStringToMemory(modelName, ' + state.dataBase + ' + STACKTOP);');
+				EmitStatement('\t\t\t{{{ makeSetValue("image", "stackOnEntry + 8", "STACKTOP", "i32") }}};');
+				EmitStatement('\t\t}');
+				EmitStatement('\t}');
+			}
+			EmitStatement('\t// modify VM stack pointer for recursive VM entry');
+			EmitStatement('\tSTACKTOP -= 4;')
+			EmitStatement('\t{{{ makeSetValue("savedVM", "VM.vm_t.programStack", "STACKTOP", "i32") }}};');
+			EmitStatement('\t// call into the client');
+			EmitStatement('\tvar systemCall = {{{ makeGetValue("savedVM", "VM.vm_t.systemCall", "i32*") }}};');
+			EmitStatement('\tvar ret = Runtime.dynCall("ii", systemCall, [image + stackOnEntry + 4]);');
+			EmitStatement('\t// restore return address');
+			EmitStatement('\t{{{ makeSetValue("image", "stackOnEntry + 4", "returnAddr", "i32") }}};');
+			EmitStatement('\t// leave the return value on the stack');
+			EmitStatement('\t{{{ makeSetValue("image", "stackOnEntry - 4", "ret", "i32") }}};');
+			EmitStatement('\tSTACKTOP = stackOnEntry;');
+			EmitStatement('\t{{{ makeSetValue("savedVM", "VM.vm_t.programStack", "STACKTOP", "i32") }}};');
+			EmitStatement('\t_VM_SetCurrent(savedVM);');
+			// intercept trap_UpdateScreen calls coming from cgame and suspend the VM
+			if (name === 'cgame') {
+				EmitStatement('\tif (callnum === 17 /* trap_UpdateScreen */) {');
+				EmitStatement('\t\tthrow { suspend: true };');
+				EmitStatement('\t}');
+			}
+			EmitStatement('\treturn;');
+			EmitStatement('}');
 
 			EmitStatement('function call(addr) {');
 			EmitStatement('\tif (addr >= 0) {');
@@ -617,12 +664,9 @@ var LibraryVM = {
 			EmitStatement('\t\tfn();');
 			EmitStatement('\t\treturn;');
 			EmitStatement('\t}');
-			EmitStatement('\tvar oldStackTop = STACKTOP;');
-			EmitStatement('\t_VM_Syscall(addr, STACKTOP);');
-			EmitStatement('\tSTACKTOP = oldStackTop;');
+			EmitStatement('\tsyscall(addr);');
 			EmitStatement('}');
 
-			EmitStatement('var temp;');
 			EmitStatement('var ab = new ArrayBuffer(4);');
 			EmitStatement('var i32 = new Int32Array(ab);');
 			EmitStatement('var u32 = new Uint32Array(ab);');
@@ -894,42 +938,15 @@ var LibraryVM = {
 				lastop2 = op;
 			}
 
-			EmitStatement('return {');
-			EmitStatement('FUNCTIONS: FUNCTIONS,');
-			EmitStatement('getStackTop: function () { return STACKTOP; },');
-			EmitStatement('setStackTop: function (val) { STACKTOP = val; },');
-			EmitStatement('};');
+			EmitStatement('return Object.create(Object.prototype, {');
+			EmitStatement('\tFUNCTIONS: { value: FUNCTIONS },');
+			EmitStatement('\tSTACKTOP: { get: function () { return STACKTOP; }, set: function (val) { STACKTOP = val; } },');
+			EmitStatement('});');
 			indent--;
 			EmitStatement('})');
 
 			return moduleStr;
 		},
-	},
-	VM_Syscall__deps: ['VM_GetCurrent', 'VM_SetCurrent'],
-	VM_Syscall: function (callnum, programStack) {
-		callnum = ~callnum;
-
-		// save the current vm
-		var savedVM = _VM_GetCurrent();
-		var image = {{{ makeGetValue('savedVM', 'VM.vm_t.dataBase', 'i32') }}};
-		var systemCall = {{{ makeGetValue('savedVM', 'VM.vm_t.systemCall', 'i32*') }}};
-
-		// modify VM stack pointer for recursive VM entry
-		{{{ makeSetValue('savedVM', 'VM.vm_t.programStack', 'programStack - 4', 'i32') }}};
-
-		var args = image + programStack + 4;
-		{{{ makeSetValue('args', '0', 'callnum', 'i32') }}};
-
-		var res = Runtime.dynCall('ii', systemCall, [args]);
-
-		// leave the return value on the stack
-		{{{ makeSetValue('image + programStack - 4', '0', 'res', 'i32') }}};
-
-		// restore
-		// {{{ makeSetValue('savedVM', 'VM.vm_t.programStack', 'programStack', 'i32') }}};
-		_VM_SetCurrent(savedVM);
-
-		return res;
 	},
 	VM_Compile__sig: 'vii',
 	VM_Compile__deps: ['$SYSC', '$VM', 'VM_Destroy'],
@@ -945,7 +962,7 @@ var LibraryVM = {
 			var start = Date.now();
 
 			var module = VM.CompileModule(name, instructionCount, headerp + codeOffset, dataBase);
-			vm = eval(module)(name);
+			vm = eval(module)();
 
 			SYSC.Print('VM file ' + name + ' compiled in ' + (Date.now() - start) + ' milliseconds');
 		} catch (e) {
@@ -971,10 +988,15 @@ var LibraryVM = {
 		delete VM.vms[handle];
 	},
 	VM_CallCompiled__sig: 'iii',
-	VM_CallCompiled__deps: ['$VM', '$OP', 'VM_GetCurrent', 'VM_SetCurrent', '_Error'],
+	VM_CallCompiled__deps: ['$SYSC', '$VM', 'VM_GetCurrent', 'VM_SetCurrent', 'VM_SuspendCompiled'],
 	VM_CallCompiled: function (vmp, args) {
 		var handle = {{{ makeGetValue('vmp', 'VM.vm_t.entryOfs', 'i32') }}};
 		var vm = VM.vms[handle];
+
+		// we can't re-enter the vm until it's been resumed
+		if (vm.suspended) {
+			SYSC.Error('drop', 'attempted to re-enter suspended vm');
+		}
 
 		// set the current vm
 		var savedVM = _VM_GetCurrent();
@@ -982,11 +1004,10 @@ var LibraryVM = {
 
 		// save off the stack pointer
 		var image = {{{ makeGetValue('vmp', 'VM.vm_t.dataBase', 'i32') }}};
-		var stackOnEntry = {{{ makeGetValue('vmp', 'VM.vm_t.programStack', 'i32') }}};
-		var stackTop = stackOnEntry - (8 + 4 * VM.MAX_VMMAIN_ARGS);
 
 		// set up the stack frame
-		vm.setStackTop(stackTop);
+		var stackOnEntry = {{{ makeGetValue('vmp', 'VM.vm_t.programStack', 'i32') }}};
+		var stackTop = stackOnEntry - VM.ENTRY_FRAME_SIZE;
 
 		{{{ makeSetValue('image', 'stackTop', '-1', 'i32') }}};
 		{{{ makeSetValue('image', 'stackTop + 4', '0', 'i32') }}};
@@ -997,23 +1018,131 @@ var LibraryVM = {
 		}
 
 		// call into the entry point
-		var entryPoint = vm.FUNCTIONS[0];
-		entryPoint();
-		if (vm.getStackTop() !== stackTop) {
-			__Error('drop', 'programStack corrupted');
-		}
-		var res = {{{ makeGetValue('image', 'stackTop-4', 'i32') }}};
+		var result;
 
-		// restore stack pointer
-		{{{ makeSetValue('vmp', 'VM.vm_t.programStack', 'stackOnEntry', 'i32') }}};
+		try {
+			var entryPoint = vm.FUNCTIONS[0];
+
+			vm.STACKTOP = stackTop;
+
+			entryPoint();
+
+			if (vm.STACKTOP !== (stackOnEntry - VM.ENTRY_FRAME_SIZE)) {
+				SYSC.Error('fatal', 'program stack corrupted, is ' + vm.STACKTOP + ', expected ' + (stackOnEntry - VM.ENTRY_FRAME_SIZE));
+			}
+
+			result = {{{ makeGetValue('image', 'vm.STACKTOP - 4', 'i32') }}};
+
+			{{{ makeSetValue('vmp', 'VM.vm_t.programStack', 'stackOnEntry', 'i32') }}};
+		} catch (e) {
+			if (e.longjmp || e === 'longjmp') {
+				throw e;
+			}
+
+			if (!e.suspend) {
+				SYSC.Error('fatal', e);
+				return;
+			}
+
+			_VM_SuspendCompiled(vmp, stackOnEntry);
+
+			result = VM.SUSPENDED;
+		}
 
 		// restore the current vm
 		_VM_SetCurrent(savedVM);
 
-		return res;
+		// return value is at the top of the stack still
+		return result;
+	},
+	VM_IsSuspendedCompiled__deps: ['$SYSC'],
+	VM_IsSuspendedCompiled: function (vmp) {
+		var handle = {{{ makeGetValue('vmp', 'VM.vm_t.entryOfs', 'i32') }}};
+		var vm = VM.vms[handle];
+
+		if (!vm) {
+			SYSC.Error('drop', 'invalid vm handle');
+			return;
+		}
+
+		return vm.suspended;
+	},
+	VM_SuspendCompiled__deps: ['$SYSC'],
+	VM_SuspendCompiled: function (vmp, stackOnEntry) {
+		var handle = {{{ makeGetValue('vmp', 'VM.vm_t.entryOfs', 'i32') }}};
+		var vm = VM.vms[handle];
+
+		if (!vm) {
+			SYSC.Error('drop', 'invalid vm handle');
+			return;
+		}
+
+		vm.suspended = true;
+		vm.stackOnEntry = stackOnEntry;
+	},
+	VM_ResumeCompiled__deps: ['$SYSC', 'VM_SuspendCompiled'],
+	VM_ResumeCompiled: function (vmp) {
+		var handle = {{{ makeGetValue('vmp', 'VM.vm_t.entryOfs', 'i32') }}};
+		var vm = VM.vms[handle];
+
+		if (!vm) {
+			SYSC.Error('drop', 'invalid vm handle');
+			return;
+		}
+
+		var savedVM = _VM_GetCurrent();
+		_VM_SetCurrent(vmp);
+
+		var image = {{{ makeGetValue('vmp', 'VM.vm_t.dataBase', 'i32') }}};
+		var stackOnEntry = vm.stackOnEntry;
+		var result;
+
+		vm.suspended = false;
+
+		try {
+			while (true) {
+				// grab the last return address off the stack top and resume execution
+				var fninstr = {{{ makeGetValue('image', 'vm.STACKTOP', 'i32') }}};
+				var opinstr = {{{ makeGetValue('image', 'vm.STACKTOP + 4', 'i32') }}};
+
+				if (fninstr === -1) {
+					// we're done unwinding
+					break;
+				}
+
+				var fn = vm.FUNCTIONS[fninstr];
+
+				fn(opinstr);
+			}
+
+			if (vm.STACKTOP !== (stackOnEntry - VM.ENTRY_FRAME_SIZE)) {
+				SYSC.Error('drop', 'program stack corrupted, is ' + vm.STACKTOP + ', expected ' + (stackOnEntry - VM.ENTRY_FRAME_SIZE));
+				return;
+			}
+
+			result = {{{ makeGetValue('image', 'vm.STACKTOP - 4', 'i32') }}};
+
+			{{{ makeSetValue('vmp', 'VM.vm_t.programStack', 'stackOnEntry', 'i32') }}};
+		} catch (e) {
+			if (e.longjmp || e === 'longjmp') {
+				throw e;
+			}
+
+			if (!e.suspend) {
+				SYSC.Error('drop', e);
+				return;
+			}
+
+			_VM_SuspendCompiled(vmp, stackOnEntry);
+
+			result = VM.SUSPENDED;
+		}
+
+		// restore the current vm
+		_VM_SetCurrent(savedVM);
+
+		return result;
 	}
 };
-
-// autoAddDeps(LibraryVM, '$VM $OP');
 
 mergeInto(LibraryManager.library, LibraryVM);
