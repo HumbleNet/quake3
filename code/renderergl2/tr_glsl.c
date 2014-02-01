@@ -1025,6 +1025,9 @@ void GLSL_InitGPUShaders(void)
 		if ((i & LIGHTDEF_USE_PARALLAXMAP) && !r_parallaxMapping->integer)
 			continue;
 
+		if ((i & LIGHTDEF_USE_SHADOWMAP) && !r_sunlightMode->integer)
+			continue;
+
 		if (!lightType && (i & LIGHTDEF_USE_PARALLAXMAP))
 			continue;
 
@@ -1052,10 +1055,10 @@ void GLSL_InitGPUShaders(void)
 
 		if (lightType)
 		{
-			Q_strcat(extradefines, 1024, "#define USE_LIGHT\n");
-
 			if (fastLight)
 				Q_strcat(extradefines, 1024, "#define USE_FAST_LIGHT\n");
+			else
+				Q_strcat(extradefines, 1024, "#define USE_LIGHT\n");
 
 			switch (lightType)
 			{
