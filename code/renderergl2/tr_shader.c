@@ -1949,7 +1949,7 @@ static void ComputeVertexAttribs(void)
 			break;
 		}
 
-		if (pStage->glslShaderGroup == tr.lightallShader)
+		if (pStage->glslShaderGroup == trs.lightallShader)
 		{
 			shader.vertexAttribs |= ATTR_NORMAL;
 
@@ -2270,7 +2270,7 @@ static void CollapseStagesToLightall(shaderStage_t *diffuse,
 
 	//ri.Printf(PRINT_ALL, ".\n");
 
-	diffuse->glslShaderGroup = tr.lightallShader;
+	diffuse->glslShaderGroup = trs.lightallShader;
 	diffuse->glslShaderIndex = defs;
 }
 
@@ -2531,7 +2531,7 @@ static qboolean CollapseStagesToGLSL(void)
 
 			if (pStage->bundle[TB_DIFFUSEMAP].tcGen == TCGEN_LIGHTMAP)
 			{
-				pStage->glslShaderGroup = tr.lightallShader;
+				pStage->glslShaderGroup = trs.lightallShader;
 				pStage->glslShaderIndex = LIGHTDEF_USE_LIGHTMAP;
 				pStage->bundle[TB_LIGHTMAP] = pStage->bundle[TB_DIFFUSEMAP];
 				pStage->bundle[TB_DIFFUSEMAP].image[0] = tr.whiteImage;
@@ -2556,7 +2556,7 @@ static qboolean CollapseStagesToGLSL(void)
 
 			if (pStage->rgbGen == CGEN_LIGHTING_DIFFUSE)
 			{
-				pStage->glslShaderGroup = tr.lightallShader;
+				pStage->glslShaderGroup = trs.lightallShader;
 				pStage->glslShaderIndex = LIGHTDEF_USE_LIGHT_VECTOR;
 
 				if (pStage->bundle[0].tcGen != TCGEN_TEXTURE || pStage->bundle[0].numTexMods != 0)
@@ -2573,7 +2573,7 @@ static qboolean CollapseStagesToGLSL(void)
 		if (!pStage->active)
 			continue;
 
-		if (pStage->glslShaderGroup != tr.lightallShader)
+		if (pStage->glslShaderGroup != trs.lightallShader)
 			continue;
 
 		if ((pStage->glslShaderIndex & LIGHTDEF_LIGHTTYPE_MASK) == 0)
