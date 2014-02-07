@@ -178,6 +178,7 @@ static void SV_Map_f( void ) {
 	char         *map;
 	qboolean     killBots, cheat;
 	char         expanded[MAX_QPATH];
+	qboolean     exists;
 	char         mapname[MAX_QPATH];
 	cb_context_t *context;
 	map_data_t   *data;
@@ -187,17 +188,23 @@ static void SV_Map_f( void ) {
 		return;
 	}
 
-// JS builds preload the map paks as part of FS_Restart,
-// the map likely won't be in the FS at this point.
-#ifndef EMSCRIPTEN
-	// make sure the level exists before trying to change, so that
-	// a typo at the server console won't end the game
-	Com_sprintf (expanded, sizeof(expanded), "maps/%s.bsp", map);
-	if ( FS_ReadFile (expanded, NULL) == -1 ) {
-		Com_Printf ("Can't find map %s\n", expanded);
-		return;
+	Com_sprintf(expanded, sizeof(expanded), "maps/%s.bsp", map);
+	exists = FS_ReadFile(expanded, NULL) != -1;
+
+#if EMSCRIPTEN
+	if (!exists) {
+		// JS builds preload the map paks as part of FS_Restart,
+		// the map likely won't be in the actual FS at this point
+		Com_sprintf(expanded, sizeof(expanded), "%s.pk3", map);
+
+		exists = strstr(Cvar_VariableString("fs_completeManifest"), expanded) != NULL;
 	}
 #endif
+
+	if (!exists) {
+		Com_Printf ("Can't find map %s\n", map);
+		return;
+	}
 
 	// force latched values to get set
 	Cvar_Get ("g_gametype", "0", CVAR_SERVERINFO | CVAR_USERINFO | CVAR_LATCH );

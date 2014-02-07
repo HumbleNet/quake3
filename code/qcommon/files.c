@@ -256,6 +256,12 @@ static	cvar_t		*fs_homepath;
 static  cvar_t          *fs_apppath;
 #endif
 
+#if EMSCRIPTEN
+static	cvar_t		*fs_cdn;
+static	cvar_t		*fs_manifest;
+static	cvar_t		*fs_completeManifest;
+#endif
+
 static	cvar_t		*fs_basepath;
 static	cvar_t		*fs_basegame;
 static	cvar_t		*fs_gamedirvar;
@@ -354,6 +360,31 @@ qboolean FS_PakIsPure( pack_t *pack ) {
 	return qtrue;
 }
 
+#if EMSCRIPTEN
+/*
+=================
+FS_PakIsInManifest
+
+quake's internal fs will limit the paks it loads to these paks. we
+do this to keep quake's pure serve code in check, otherwise, often
+the server and client will have paks for maps other than the current
+that are out of sync and therefor throw off pure checksums
+=================
+*/
+qboolean FS_PakIsInManifest(pack_t *pack) {
+	char relative[MAX_OSPATH];
+
+	Com_sprintf(relative, sizeof(relative), "%s/%s", pack->pakGamename, pack->pakBasename);
+
+	if (FS_idPak(relative, BASEGAME, NUM_ID_PAKS)) {
+		return qtrue;
+	}
+
+	Q_strcat(relative, sizeof(relative), ".pk3");
+
+	return strstr(Com_GetManifest(), relative) != NULL;
+}
+#endif
 
 /*
 =================
@@ -1209,6 +1240,13 @@ long FS_FOpenFileReadDir(const char *filename, searchpath_t *search, fileHandle_
 				return -1;
 			}
 
+#if EMSCRIPTEN
+			if (!FS_PakIsInManifest(search->pack)) {
+				*file = 0;
+				return -1;
+			}
+#endif
+
 			// look through all the pak file elements
 			pak = search->pack;
 			pakFile = pak->hashTable[hash];
@@ -1773,6 +1811,12 @@ int	FS_FileIsInPAK(const char *filename, int *pChecksum ) {
 				continue;
 			}
 
+#if EMSCRIPTEN
+			if (!FS_PakIsInManifest(search->pack)) {
+				continue;
+			}
+#endif
+
 			// look through all the pak file elements
 			pak = search->pack;
 			pakFile = pak->hashTable[hash];
@@ -2256,6 +2300,12 @@ char **FS_ListFilteredFiles( const char *path, const char *extension, char *filt
 			if ( !FS_PakIsPure(search->pack) ) {
 				continue;
 			}
+
+#if EMSCRIPTEN
+			if (!FS_PakIsInManifest(search->pack)) {
+				continue;
+			}
+#endif
 
 			// look through all the pak file elements
 			pak = search->pack;
@@ -2756,6 +2806,13 @@ void FS_Path_f( void ) {
 					Com_Printf( "    on the pure list\n" );
 				}
 			}
+#if EMSCRIPTEN
+			if (FS_PakIsInManifest(s->pack)) {
+				Com_Printf("    in the manifest\n");
+			} else {
+				Com_Printf("    not in the manifest\n");
+			}
+#endif
 		} else {
 			Com_Printf ("%s%c%s\n", s->dir->path, PATH_SEP, s->dir->gamedir );
 		}
@@ -3009,10 +3066,13 @@ FS_idPak
 */
 qboolean FS_idPak(char *pak, char *base, int numPaks)
 {
+	char temp[MAX_OSPATH];
 	int i;
 
 	for (i = 0; i < NUM_ID_PAKS; i++) {
-		if ( !FS_FilenameCompare(pak, va("%s/pak%d", base, i)) ) {
+		Com_sprintf(temp, sizeof(temp), "%s/pak%d", base, i);
+
+		if ( !FS_FilenameCompare(pak, temp) ) {
 			break;
 		}
 	}
@@ -3396,6 +3456,13 @@ static void FS_Startup( const char *gameName, cb_context_t *after )
 	fs_packFiles = 0;
 
 	fs_debug = Cvar_Get( "fs_debug", "0", 0 );
+
+#if EMSCRIPTEN
+	fs_cdn = Cvar_Get("fs_cdn", "content.quakejs.com", CVAR_INIT | CVAR_SERVERINFO);
+	fs_manifest = Cvar_Get("fs_manifest", "", CVAR_ROM | CVAR_SERVERINFO);
+	fs_completeManifest = Cvar_Get("fs_completeManifest", "", CVAR_ROM);
+#endif
+
 	fs_basepath = Cvar_Get ("fs_basepath", Sys_DefaultInstallPath(), CVAR_INIT|CVAR_PROTECTED );
 	fs_basegame = Cvar_Get ("fs_basegame", "", CVAR_INIT );
 	homePath = Sys_DefaultHomePath();
@@ -3418,7 +3485,7 @@ static void FS_Startup( const char *gameName, cb_context_t *after )
 #endif
 }
 
-#ifndef STANDALONE
+#if !defined STANDALONE && !EMSCRIPTEN
 /*
 ===================
 FS_CheckPak0
@@ -3437,6 +3504,7 @@ static void FS_CheckPak0( void )
 	pack_t		*curpack;
 	qboolean founddemo = qfalse;
 	unsigned int foundPak = 0, foundTA = 0;
+	unsigned int checksum = 0;
 
 	for( path = fs_searchpaths; path; path = path->next )
 	{
@@ -3458,7 +3526,14 @@ static void FS_CheckPak0( void )
 				&& strlen(pakBasename) == 4 && !Q_stricmpn( pakBasename, "pak", 3 )
 				&& pakBasename[3] >= '0' && pakBasename[3] <= '0' + NUM_ID_PAKS - 1)
 		{
-			if( curpack->checksum != pak_checksums[pakBasename[3]-'0'] )
+			checksum = pak_checksums[pakBasename[3]-'0'];
+#if EMSCRIPTEN
+			// Emscripten build uses demo pak0
+			if (pakBasename[3] == '0') {
+				checksum = DEMO_PAK0_CHECKSUM;
+			}
+#endif
+			if( curpack->checksum != checksum )
 			{
 				if(pakBasename[3] == '0')
 				{
@@ -3963,7 +4038,7 @@ void FS_InitFilesystem_after_FS_Startup( cb_context_t *context, int status ) {
 	after = data->after;
 	cb_free_context(context);
 
-#ifndef STANDALONE
+#if !defined STANDALONE && !EMSCRIPTEN
 	FS_CheckPak0( );
 #endif
 
@@ -4027,7 +4102,7 @@ static void FS_Restart_after_FS_Startup( cb_context_t *context, int status ) {
 	after = data->after;
 	cb_free_context(context);
 
-#ifndef STANDALONE
+#if !defined STANDALONE && !EMSCRIPTEN
 	FS_CheckPak0( );
 #endif
 

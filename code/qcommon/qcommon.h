@@ -976,6 +976,10 @@ void Com_Init( char *commandLine, cb_context_t *after );
 void Com_Frame( void );
 void Com_Shutdown( void );
 
+#if EMSCRIPTEN
+const char *Com_GetCDN(void);
+const char *Com_GetManifest(void);
+#endif
 
 /*
 ==============================================================
@@ -1049,6 +1053,11 @@ void S_ClearSoundBuffer( void );
 // call before filesystem access
 
 void SCR_DebugGraph (float value);	// FIXME: move logging to common?
+
+#if EMSCRIPTEN
+const char *CL_GetCDN(void);
+const char *CL_GetManifest(void);
+#endif
 
 // AVI files have the start of pixel lines 4 byte-aligned
 #define AVI_LINE_PADDING 4

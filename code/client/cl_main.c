@@ -2280,6 +2280,7 @@ and determine if we need to download them
 void CL_InitDownloads(void) {
   char missingfiles[1024];
 
+#if !EMSCRIPTEN
   if ( !(cl_allowDownload->integer & DLF_ENABLE) )
   {
     // autodownload is disabled on the client
@@ -2309,6 +2310,7 @@ void CL_InitDownloads(void) {
 		}
 
 	}
+#endif
 
 	CL_DownloadsComplete();
 }
