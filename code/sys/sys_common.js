@@ -328,7 +328,7 @@ var LibrarySysCommon = {
 
 			return true;
 		},
-		DirtyInstallers: function () {
+		DirtyInstallers: function (callback) {
 			var installers = [];
 			var assets = SYSC.GetManifest();
 
@@ -386,7 +386,7 @@ var LibrarySysCommon = {
 			nextEntry();
 		},
 		SyncInstallers: function (callback) {
-			var downloads = SYSC.DirtyInstallers();
+			var downloads = SYSC.DirtyInstallers(callback);
 
 			if (!downloads.length) {
 				return callback();
