@@ -97,8 +97,7 @@ var LibrarySys = {
 	Sys_FS_Startup__deps: ['$Browser', '$FS', '$PATH', '$SYSC'],
 	Sys_FS_Startup: function (context) {
 		// mount a persistable fs into base if not already mounted
-		var name = allocate(intArrayFromString('fs_homepath'), 'i8', ALLOC_STACK);
-		var fs_homepath = Pointer_stringify(_Cvar_VariableString(name));
+		var fs_homepath = SYSC.Cvar_VariableString('fs_homepath');
 		var localPath = PATH.join('.', fs_homepath);
 
 		// make sure the local path exists
@@ -160,8 +159,7 @@ var LibrarySys = {
 	},
 	Sys_FS_Shutdown__deps: ['$Browser', '$SYSC'],
 	Sys_FS_Shutdown: function (context) {
-		var name = allocate(intArrayFromString('fs_homepath'), 'i8', ALLOC_STACK);
-		var fs_homepath = Pointer_stringify(_Cvar_VariableString(name));
+		var fs_homepath = SYSC.Cvar_VariableString('fs_homepath');
 
 		SYSC.FS_Shutdown(Browser.safeCallback(function (err) {
 			if (err) {

@@ -278,8 +278,7 @@ var LibrarySys = {
 	},
 	Sys_FS_Startup__deps: ['$Browser', '$FS', '$IDBFS', '$SYSC'],
 	Sys_FS_Startup: function (context) {
-		var name = allocate(intArrayFromString('fs_homepath'), 'i8', ALLOC_STACK);
-		var fs_homepath = Pointer_stringify(_Cvar_VariableString(name));
+		var fs_homepath = SYSC.Cvar_VariableString('fs_homepath');
 
 		// mount a persistable filesystem into base
 		var dir;
@@ -321,8 +320,7 @@ var LibrarySys = {
 	},
 	Sys_FS_Shutdown__deps: ['$Browser', '$FS', '$SYSC'],
 	Sys_FS_Shutdown: function (context) {
-		var name = allocate(intArrayFromString('fs_homepath'), 'i8', ALLOC_STACK);
-		var fs_homepath = Pointer_stringify(_Cvar_VariableString(name));
+		var fs_homepath = SYSC.Cvar_VariableString('fs_homepath');
 
 		FS.syncfs(function (err) {
 			SYSC.FS_Shutdown(Browser.safeCallback(function (err) {
