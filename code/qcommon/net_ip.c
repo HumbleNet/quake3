@@ -1427,7 +1427,11 @@ static qboolean NET_GetCvars( void ) {
 	 * used if available due to ping */
 	net_enabled = Cvar_Get( "net_enabled", "3", CVAR_LATCH | CVAR_ARCHIVE );
 #endif
-	modified = net_enabled->modified;
+#ifdef EMSCRIPTEN
+    // emscripten doesnt support net.
+    Cvar_Set( "net_enabled", "0" );
+#endif
+    modified = net_enabled->modified;
 	net_enabled->modified = qfalse;
 
 	net_ip = Cvar_Get( "net_ip", "0.0.0.0", CVAR_LATCH );
