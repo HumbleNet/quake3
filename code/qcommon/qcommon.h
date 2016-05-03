@@ -126,6 +126,9 @@ NET
 // disables ipv6 multicast support if set.
 #define NET_DISABLEMCAST        0x08
 
+#ifdef USE_HUMBLENET
+#define NET_ENABLEHNET          0x10
+#endif
 
 #define	PACKET_BACKUP	32	// number of old messages that must be kept on client and
 							// server for delta comrpession and ping estimation
@@ -147,6 +150,9 @@ typedef enum {
 	NA_IP,
 	NA_IP6,
 	NA_MULTICAST6,
+#ifdef USE_HUMBLENET
+	NA_HUMBLENET,
+#endif
 	NA_UNSPEC
 } netadrtype_t;
 

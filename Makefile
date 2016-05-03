@@ -259,6 +259,7 @@ VORBISDIR=$(MOUNT_DIR)/libvorbis-1.3.4
 OPUSDIR=$(MOUNT_DIR)/opus-1.1
 OPUSFILEDIR=$(MOUNT_DIR)/opusfile-0.5
 ZDIR=$(MOUNT_DIR)/zlib
+HDIR=$(MOUNT_DIR)/humblenet
 Q3ASMDIR=$(MOUNT_DIR)/tools/asm
 LBURGDIR=$(MOUNT_DIR)/tools/lcc/lburg
 Q3CPPDIR=$(MOUNT_DIR)/tools/lcc/cpp
@@ -488,6 +489,12 @@ ifeq ($(PLATFORM),darwin)
   SHLIBLDFLAGS=-dynamiclib $(LDFLAGS) -Wl,-U,_com_altivec
 
   NOTSHLIBCFLAGS=-mdynamic-no-pic
+
+  LIBS += $(LIBSDIR)/macosx/libhumblenet.dylib
+  EXTRA_FILES += $(LIBSDIR)/macosx/libhumblenet.dylib
+  BASE_CFLAGS += -DUSE_HUMBLENET
+
+  LDFLAGS += -rpath @executable_path/
 
 else # ifeq darwin
 

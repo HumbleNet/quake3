@@ -118,6 +118,13 @@ static SOCKET	ip6_socket = INVALID_SOCKET;
 static SOCKET	socks_socket = INVALID_SOCKET;
 static SOCKET	multicast6_socket = INVALID_SOCKET;
 
+#ifdef USE_HUMBLENET
+#       include "../humblenet/humblenet_socket.h"
+#       include "net_humblenet.c"
+
+static SOCKET   humblenet_socket = INVALID_SOCKET;
+#endif
+
 // Keep track of currently joined multicast group.
 static struct ipv6_mreq curgroup;
 // And the currently bound address.
@@ -232,6 +239,13 @@ static void NetadrToSockadr( netadr_t *a, struct sockaddr *s ) {
 		((struct sockaddr_in6 *)s)->sin6_addr = curgroup.ipv6mr_multiaddr;
 		((struct sockaddr_in6 *)s)->sin6_port = a->port;
 	}
+#ifdef USE_HUMBLENET
+    else if( a->type == NA_HUMBLENET ) {
+        ((struct sockaddr_in *)s)->sin_family = AF_HNET;
+        ((struct sockaddr_in *)s)->sin_addr.s_addr = *(int *)&a->ip;
+        ((struct sockaddr_in *)s)->sin_port = a->port;
+    }
+#endif
 }
 
 
@@ -248,6 +262,13 @@ static void SockadrToNetadr( struct sockaddr *s, netadr_t *a ) {
 		a->port = ((struct sockaddr_in6 *)s)->sin6_port;
 		a->scope_id = ((struct sockaddr_in6 *)s)->sin6_scope_id;
 	}
+#ifdef USE_HUMBLENET
+    else if (s->sa_family == AF_HNET) {
+        a->type = NA_HUMBLENET;
+        *(int *)&a->ip = ((struct sockaddr_in *)s)->sin_addr.s_addr;
+        a->port = ((struct sockaddr_in *)s)->sin_port;
+    }
+#endif
 }
 
 
@@ -307,6 +328,10 @@ static qboolean Sys_StringToSockaddr(const char *s, struct sockaddr *sadr, int s
 				if(!search && (net_enabled->integer & NET_ENABLEV6))
 					search = SearchAddrInfo(res, AF_INET6);
 			}
+#ifdef USE_HUMBLENET
+            if(! search && net_enabled->integer & NET_ENABLEHNET)
+                search = SearchAddrInfo(res, AF_HNET);
+#endif
 		}
 		else
 			search = SearchAddrInfo(res, family);
@@ -414,6 +439,16 @@ qboolean NET_CompareBaseAdrMask(netadr_t a, netadr_t b, int netmask)
 		if(netmask < 0 || netmask > 128)
 			netmask = 128;
 	}
+#ifdef USE_HUMBLENET
+    else if(a.type == NA_HUMBLENET)
+    {
+        addra = (byte *) &a.ip;
+        addrb = (byte *) &b.ip;
+        
+        if(netmask < 0 || netmask > 32)
+            netmask = 32;
+    }
+#endif
 	else
 	{
 		Com_Printf ("NET_CompareBaseAdr: bad address type\n");
@@ -485,6 +520,10 @@ const char	*NET_AdrToStringwPort (netadr_t a)
 		Com_sprintf(s, sizeof(s), "%s:%hu", NET_AdrToString(a), ntohs(a.port));
 	else if(a.type == NA_IP6)
 		Com_sprintf(s, sizeof(s), "[%s]:%hu", NET_AdrToString(a), ntohs(a.port));
+#ifdef USE_HUMBLENET
+    else if(a.type == NA_HUMBLENET)
+        Com_sprintf(s, sizeof(s), "[%s]:%hu", NET_AdrToString(a), ntohs(a.port));
+#endif
 
 	return s;
 }
@@ -627,6 +666,37 @@ qboolean NET_GetPacket(netadr_t *net_from, msg_t *net_message, fd_set *fdr)
 		}
 	}
 	
+#ifdef USE_HUMBLENET
+    if(humblenet_socket != INVALID_SOCKET /*&& FD_ISSET(humblenet_socket, fdr)*/)
+    {
+        fromlen = sizeof(from);
+        ret = recvfrom( humblenet_socket, (void *)net_message->data, net_message->maxsize, 0, (struct sockaddr *) &from, &fromlen );
+        
+        if (ret == SOCKET_ERROR)
+        {
+            err = socketError;
+            
+            if( err != EAGAIN && err != ECONNRESET )
+                Com_Printf( "NET_GetPacket: %s\n", NET_ErrorString() );
+        }
+        else
+        {
+            
+            memset( ((struct sockaddr_in *)&from)->sin_zero, 0, 8 );
+            
+            SockadrToNetadr( (struct sockaddr *) &from, net_from );
+            net_message->readcount = 0;
+            
+            if( ret >= net_message->maxsize ) {
+                Com_Printf( "Oversize packet from %s\n", NET_AdrToString (*net_from) );
+                return qfalse;
+            }
+            
+            net_message->cursize = ret;
+            return qtrue;
+        }
+    }
+#endif
 	
 	return qfalse;
 }
@@ -644,7 +714,11 @@ void Sys_SendPacket( int length, const void *data, netadr_t to ) {
 	int				ret = SOCKET_ERROR;
 	struct sockaddr_storage	addr;
 
+#ifdef USE_HUMBLENET
+    if( to.type != NA_BROADCAST && to.type != NA_IP && to.type != NA_IP6 && to.type != NA_MULTICAST6 && to.type != NA_HUMBLENET)
+#else
 	if( to.type != NA_BROADCAST && to.type != NA_IP && to.type != NA_IP6 && to.type != NA_MULTICAST6)
+#endif
 	{
 		Com_Error( ERR_FATAL, "Sys_SendPacket: bad address type" );
 		return;
@@ -652,6 +726,9 @@ void Sys_SendPacket( int length, const void *data, netadr_t to ) {
 
 	if( (ip_socket == INVALID_SOCKET && to.type == NA_IP) ||
 		(ip_socket == INVALID_SOCKET && to.type == NA_BROADCAST) ||
+#ifdef USE_HUMBLENET
+        (humblenet_socket == INVALID_SOCKET && to.type == NA_HUMBLENET) ||
+#endif
 		(ip6_socket == INVALID_SOCKET && to.type == NA_IP6) ||
 		(ip6_socket == INVALID_SOCKET && to.type == NA_MULTICAST6) )
 		return;
@@ -677,6 +754,10 @@ void Sys_SendPacket( int length, const void *data, netadr_t to ) {
 			ret = sendto( ip_socket, data, length, 0, (struct sockaddr *) &addr, sizeof(struct sockaddr_in) );
 		else if(addr.ss_family == AF_INET6)
 			ret = sendto( ip6_socket, data, length, 0, (struct sockaddr *) &addr, sizeof(struct sockaddr_in6) );
+#ifdef USE_HUMBLENET
+        else if( addr.ss_family == AF_HNET)
+            ret = sendto( humblenet_socket, data, length, 0, (struct sockaddr *) &addr, sizeof(struct sockaddr_in) );
+#endif
 	}
 	if( ret == SOCKET_ERROR ) {
 		int err = socketError;
@@ -1225,6 +1306,79 @@ void NET_OpenSocks( int port ) {
 	usingSocks = qtrue;
 }
 
+#ifdef USE_HUMBLENET
+/*
+====================
+NET_HumblenetSocket
+====================
+*/
+SOCKET NET_HumblenetSocket( char *net_interface, int port, int *err ) {
+	SOCKET				newsocket;
+	struct sockaddr_in	address;
+	ioctlarg_t			_true = 1;
+	int					i = 1;
+
+	*err = 0;
+
+    // Make sure its initialized...
+	HUMBLENET_Init();
+
+	if( net_interface ) {
+		Com_Printf( "Opening Humblenet socket: %s:%i\n", net_interface, port );
+	}
+	else {
+		Com_Printf( "Opening Humblenet socket: 0.0.0.0:%i\n", port );
+	}
+
+	if( ( newsocket = socket( PF_HNET, SOCK_DGRAM, IPPROTO_UDP ) ) == INVALID_SOCKET ) {
+		*err = socketError;
+		Com_Printf( "WARNING: NET_HumblenetSocket: socket: %s\n", NET_ErrorString() );
+		return newsocket;
+	}
+	// make it non-blocking
+	if( ioctlsocket( newsocket, FIONBIO, &_true ) == SOCKET_ERROR ) {
+		Com_Printf( "WARNING: NET_HumblenetSocket: ioctl FIONBIO: %s\n", NET_ErrorString() );
+		*err = socketError;
+		closesocket(newsocket);
+		return INVALID_SOCKET;
+	}
+
+	// make it broadcast capable
+	if( setsockopt( newsocket, SOL_SOCKET, SO_BROADCAST, (char *) &i, sizeof(i) ) == SOCKET_ERROR ) {
+		Com_Printf( "WARNING: NET_HumblenetSocket: setsockopt SO_BROADCAST: %s\n", NET_ErrorString() );
+	}
+/*
+	if( !net_interface || !net_interface[0]) {
+		address.sin_family = AF_HNET;
+		address.sin_addr.s_addr = INADDR_ANY;
+	}
+	else
+	{
+		if(!Sys_StringToSockaddr( net_interface, (struct sockaddr *)&address, sizeof(address), AF_HNET))
+		{
+			closesocket(newsocket);
+			return INVALID_SOCKET;
+		}
+	}
+
+	if( port == PORT_ANY ) {
+		address.sin_port = 0;
+	}
+	else {
+		address.sin_port = htons( (short)port );
+	}
+
+	if( bind( newsocket, (void *)&address, sizeof(address) ) == SOCKET_ERROR ) {
+		Com_Printf( "WARNING: NET_HumblenetSocket: bind: %s\n", NET_ErrorString() );
+		*err = socketError;
+		closesocket( newsocket );
+		return INVALID_SOCKET;
+	}
+*/
+	return newsocket;
+}
+
+#endif
 
 /*
 =====================
@@ -1404,6 +1558,16 @@ void NET_OpenIP( void ) {
 		if(ip_socket == INVALID_SOCKET)
 			Com_Printf( "WARNING: Couldn't bind to a v4 ip address.\n");
 	}
+    
+#ifdef USE_HUMBLENET
+    if(net_enabled->integer & NET_ENABLEHNET)
+    {
+        humblenet_socket = NET_HumblenetSocket( net_ip->string, port, &err );
+
+        if(humblenet_socket == INVALID_SOCKET)
+            Com_Printf( "WARNING: Couldn't bind to humblenet.\n");
+    }
+#endif
 }
 
 
@@ -1552,6 +1716,13 @@ void NET_Config( qboolean enableNetworking ) {
 			socks_socket = INVALID_SOCKET;
 		}
 		
+#ifdef USE_HUMBLENET
+        if( humblenet_socket != INVALID_SOCKET ) {
+            closesocket( humblenet_socket );
+            humblenet_socket = INVALID_SOCKET;
+        }
+#endif
+
 	}
 
 	if( start )
