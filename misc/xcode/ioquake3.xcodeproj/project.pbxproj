@@ -111,6 +111,8 @@
 		27AAD06F178E04FF0093DFC0 /* OpenAL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 27AAD06E178E04FF0093DFC0 /* OpenAL.framework */; };
 		27AAD071178E05290093DFC0 /* libcurl.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 27AAD070178E05290093DFC0 /* libcurl.dylib */; };
 		27AAD073178E052F0093DFC0 /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 27AAD072178E052F0093DFC0 /* libz.dylib */; };
+		FBFEBD381D09CA8C00B03B42 /* libhumblenet.dylib in Copy Files - Dynamic Libraries */ = {isa = PBXBuildFile; fileRef = FBFEBD371D09CA8C00B03B42 /* libhumblenet.dylib */; };
+		FBFEBD391D09CBBD00B03B42 /* libhumblenet.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = FBFEBD371D09CA8C00B03B42 /* libhumblenet.dylib */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -130,6 +132,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 6;
 			files = (
+				FBFEBD381D09CA8C00B03B42 /* libhumblenet.dylib in Copy Files - Dynamic Libraries */,
 				274FAC03178FADFC00B17C7A /* libSDL-1.2.0.dylib in Copy Files - Dynamic Libraries */,
 			);
 			name = "Copy Files - Dynamic Libraries";
@@ -334,6 +337,8 @@
 		27B0E9F21743E0A800DB1F32 /* null_main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = null_main.c; sourceTree = "<group>"; };
 		27B0E9F31743E0A800DB1F32 /* null_net.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = null_net.c; sourceTree = "<group>"; };
 		27B0E9F41743E0A800DB1F32 /* null_snddma.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = null_snddma.c; sourceTree = "<group>"; };
+		FBFEBD371D09CA8C00B03B42 /* libhumblenet.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libhumblenet.dylib; path = ../../code/libs/macosx/libhumblenet.dylib; sourceTree = SOURCE_ROOT; };
+		FBFEBD3A1D09CF4200B03B42 /* net_humblenet.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = net_humblenet.c; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -350,6 +355,7 @@
 				27AAD071178E05290093DFC0 /* libcurl.dylib in Frameworks */,
 				2758BB3417905C17007F6582 /* libSDL-1.2.0.dylib in Frameworks */,
 				27AAD073178E052F0093DFC0 /* libz.dylib in Frameworks */,
+				FBFEBD391D09CBBD00B03B42 /* libhumblenet.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -371,6 +377,7 @@
 				2772B8001790EABF004CCF57 /* libspeex.a */,
 				2758B912178FB696007F6582 /* libSDLmain.a */,
 				274FAC02178FADCA00B17C7A /* libSDL-1.2.0.dylib */,
+				FBFEBD371D09CA8C00B03B42 /* libhumblenet.dylib */,
 			);
 			name = Libraries;
 			path = ../..;
@@ -446,6 +453,7 @@
 				2711BE9414D136DF005EB142 /* msg.c */,
 				2711BE9514D136DF005EB142 /* net_chan.c */,
 				27AAD012178E00C30093DFC0 /* net_ip.c */,
+				FBFEBD3A1D09CF4200B03B42 /* net_humblenet.c */,
 				27AAD014178E00CE0093DFC0 /* puff.c */,
 				27AAD015178E00CE0093DFC0 /* puff.h */,
 				27AAD017178E00E80093DFC0 /* q_math.c */,
@@ -914,6 +922,7 @@
 					"NO_USE_CODEC_OPUS=1",
 					"NO_USE_MUMBLE=1",
 					"USE_VOIP=1",
+					"USE_HUMBLENET=1",
 					"NO_USE_FREETYPE=0",
 					"NO_USE_INTERNAL_SPEEX=1",
 					"NO_USE_INTERNAL_OGG=1",
@@ -963,6 +972,7 @@
 					"USE_OPENAL=1",
 					"USE_OPENAL_DLOPEN=1",
 					"USE_VOIP=1",
+					"USE_HUMBLENET=1",
 					"USE_LOCAL_HEADERS=1",
 					"USE_RENDERER_DLOPEN=1",
 				);
@@ -992,12 +1002,13 @@
 					"\"$(SRCROOT)/../../code/libogg-1.3.0/include\"",
 				);
 				INFOPLIST_FILE = "ioquake3-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
 					"\"$(BUILT_PRODUCTS_DIR)\"",
 					"\"$(SRCROOT)/../../code/libs/macosx\"",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.4;
+				MACOSX_DEPLOYMENT_TARGET = 10.6;
 				PRODUCT_NAME = ioquake3;
 				WRAPPER_EXTENSION = app;
 			};
@@ -1017,12 +1028,13 @@
 					"\"$(SRCROOT)/../../code/libogg-1.3.0/include\"",
 				);
 				INFOPLIST_FILE = "ioquake3-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
 					"\"$(BUILT_PRODUCTS_DIR)\"",
 					"\"$(SRCROOT)/../../code/libs/macosx\"",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.4;
+				MACOSX_DEPLOYMENT_TARGET = 10.6;
 				PRODUCT_NAME = ioquake3;
 				WRAPPER_EXTENSION = app;
 			};

@@ -219,6 +219,10 @@ ifndef USE_RENDERER_DLOPEN
 USE_RENDERER_DLOPEN=1
 endif
 
+ifndef USE_HUMBLENET
+USE_HUMBLENET=1
+endif
+
 ifndef DEBUG_CFLAGS
 DEBUG_CFLAGS=-g -O0
 endif
@@ -248,6 +252,7 @@ OGGDIR=$(MOUNT_DIR)/libogg-1.3.0
 OPUSDIR=$(MOUNT_DIR)/opus-1.0.2
 OPUSFILEDIR=$(MOUNT_DIR)/opusfile-0.2
 ZDIR=$(MOUNT_DIR)/zlib
+HDIR=$(MOUNT_DIR)/humblenet
 Q3ASMDIR=$(MOUNT_DIR)/tools/asm
 LBURGDIR=$(MOUNT_DIR)/tools/lcc/lburg
 Q3CPPDIR=$(MOUNT_DIR)/tools/lcc/cpp
@@ -492,6 +497,13 @@ ifeq ($(PLATFORM),darwin)
   SHLIBLDFLAGS=-dynamiclib $(LDFLAGS) -Wl,-U,_com_altivec
 
   NOTSHLIBCFLAGS=-mdynamic-no-pic
+
+  ifeq ($(USE_HUMBLENET),1)
+    LIBS += $(LIBSDIR)/macosx/libhumblenet.dylib
+    EXTRA_FILES += $(LIBSDIR)/macosx/libhumblenet.dylib
+    BASE_CFLAGS += -DUSE_HUMBLENET
+    LDFLAGS += -rpath @executable_path/
+  endif
 
 else # ifeq darwin
 
@@ -911,6 +923,10 @@ ifeq ($(PLATFORM),js)
   LIBSYSBROWSER=$(SYSDIR)/sys_browser.js
   LIBSYSNODE=$(SYSDIR)/sys_node.js
   LIBVMJS=$(CMDIR)/vm_js.js
+
+ifeq ($(USE_HUMBLENET),1)
+  BASE_CFLAGS += -DUSE_HUMBLENET
+endif
 
   CLIENT_LDFLAGS += --js-library $(LIBSYSCOMMON) \
     --js-library $(LIBSYSBROWSER) \
@@ -2085,6 +2101,13 @@ ifeq ($(PLATFORM),darwin)
     $(B)/client/sys_osx.o
 endif
 
+ifeq ($(PLATFORM),js)
+ifeq ($(USE_HUMBLENET),1)
+  Q3OBJ += \
+    $(B)/client/humblenet_asmjs_amalgam.o
+endif
+endif
+
 ifeq ($(USE_MUMBLE),1)
   Q3OBJ += \
     $(B)/client/libmumblelink.o
@@ -2260,6 +2283,13 @@ endif
 ifeq ($(PLATFORM),darwin)
   Q3DOBJ += \
     $(B)/ded/sys_osx.o
+endif
+
+ifeq ($(PLATFORM),js)
+ifeq ($(USE_HUMBLENET),1)
+  Q3DOBJ += \
+    $(B)/ded/humblenet_asmjs_amalgam.o
+endif
 endif
 
 $(B)/$(SERVERBIN)$(FULLBINEXT): $(Q3DOBJ) $(LIBSYSCOMMON) $(LIBSYSNODE) $(LIBVMJS)
@@ -2571,6 +2601,9 @@ $(B)/client/%.o: $(CDIR)/%.c
 $(B)/client/%.o: $(SDIR)/%.c
 	$(DO_CC)
 
+$(B)/client/%.o: $(HDIR)/%.cpp
+	$(DO_CC) -std=c++11 -fno-exceptions -fno-rtti -O1
+
 $(B)/client/%.o: $(CMDIR)/%.c
 	$(DO_CC)
 
@@ -2651,6 +2684,9 @@ $(B)/ded/%.o: $(ASMDIR)/%.c
 
 $(B)/ded/%.o: $(SDIR)/%.c
 	$(DO_DED_CC)
+
+$(B)/ded/%.o: $(HDIR)/%.cpp
+	$(DO_DED_CC) -std=c++11 -fno-exceptions -fno-rtti
 
 $(B)/ded/%.o: $(CMDIR)/%.c
 	$(DO_DED_CC)
