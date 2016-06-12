@@ -12,6 +12,7 @@ char* NET_ErrorString();
 static PeerId humblenet_peer = 0;
 static cvar_t *net_peer_server;
 static cvar_t *net_server_name;
+static cvar_t *net_peer_relay;
 static qboolean published = 0;
 
 static qboolean is_server_active() {
@@ -93,6 +94,10 @@ void HUMBLENET_Init (void)
 	if( !humblenet_p2p_is_initialized() ) {
 		Com_Printf("P2P Network not initialized. <insert instructions to do so here>...\n");
 	}
+
+    net_peer_relay = Cvar_Get("net_peer_relay", "0", CVAR_ARCHIVE);
+    if( net_peer_relay->integer )
+        humblenet_set_hint("p2p_use_relay", net_peer_relay->string);
 	
 #ifdef EMSCRIPTEN
 	// disconnect client when user closes tab
@@ -101,6 +106,9 @@ void HUMBLENET_Init (void)
 }
 
 void HUMBLENET_Update(void) {
+    if( ! humblenet_p2p_is_initialized() )
+        return;
+
 	humblenet_p2p_wait(0);
 	
 	if( humblenet_peer == 0 ) {
@@ -115,6 +123,11 @@ void HUMBLENET_Update(void) {
     } else if( published ) {
         NET_server_name_changed(net_server_name, NULL, net_server_name->string );
         published = qfalse;
+    }
+
+    if( net_peer_relay->modified ) {
+        humblenet_set_hint("p2p_use_relay", net_peer_relay->string);
+        net_peer_relay->modified = qfalse;
     }
 }
 
